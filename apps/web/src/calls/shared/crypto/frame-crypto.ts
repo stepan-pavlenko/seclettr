@@ -148,7 +148,8 @@ function bindFrameCryptoScriptTransform(
   direction: FrameCryptoDirection,
   context: GroupCallFrameCryptoContext,
   initialKeyInput: GroupCallFrameKeyInput,
-  onPipelineFailed?: () => void
+  onPipelineFailed?: () => void,
+  requireEncryption = false
 ): GroupCallFrameCryptoHandle {
   const ScriptTransform = resolveScriptTransformConstructor();
   if (!ScriptTransform || typeof Worker === "undefined") {
@@ -210,6 +211,7 @@ function bindFrameCryptoScriptTransform(
       direction,
       context,
       keyContexts,
+      requireEncryption,
     });
   };
 
@@ -274,7 +276,8 @@ function bindFrameCryptoTransform(
   direction: FrameCryptoDirection,
   context: GroupCallFrameCryptoContext,
   initialKeyInput: GroupCallFrameKeyInput,
-  onPipelineFailed?: () => void
+  onPipelineFailed?: () => void,
+  requireEncryption = false
 ): GroupCallFrameCryptoHandle {
   let encodedStreams: EncodedStreams | undefined;
   let legacyEncodedStreamsFailed = false;
@@ -292,7 +295,8 @@ function bindFrameCryptoTransform(
         direction,
         context,
         initialKeyInput,
-        onPipelineFailed
+        onPipelineFailed,
+        requireEncryption
       );
     }
     if (legacyEncodedStreamsFailed) {
@@ -325,6 +329,7 @@ function bindFrameCryptoTransform(
         direction,
         additionalData,
         keyStates,
+        requireEncryption,
       });
       if (nextData === null) {
         if (direction === "recv" && keyStates.length === 0 && !hasWarnedEmptyKeyDrop) {
@@ -380,16 +385,18 @@ export function bindSenderFrameEncryption(
   sender: RTCRtpSender,
   context: GroupCallFrameCryptoContext,
   initialKeyInput: GroupCallFrameKeyInput,
-  onPipelineFailed?: () => void
+  onPipelineFailed?: () => void,
+  requireEncryption = false
 ): GroupCallFrameCryptoHandle {
-  return bindFrameCryptoTransform(sender as EncodedStreamsCapable, "send", context, initialKeyInput, onPipelineFailed);
+  return bindFrameCryptoTransform(sender as EncodedStreamsCapable, "send", context, initialKeyInput, onPipelineFailed, requireEncryption);
 }
 
 export function bindReceiverFrameDecryption(
   receiver: RTCRtpReceiver,
   context: GroupCallFrameCryptoContext,
   initialKeyInput: GroupCallFrameKeyInput,
-  onPipelineFailed?: () => void
+  onPipelineFailed?: () => void,
+  requireEncryption = false
 ): GroupCallFrameCryptoHandle {
-  return bindFrameCryptoTransform(receiver as EncodedStreamsCapable, "recv", context, initialKeyInput, onPipelineFailed);
+  return bindFrameCryptoTransform(receiver as EncodedStreamsCapable, "recv", context, initialKeyInput, onPipelineFailed, requireEncryption);
 }

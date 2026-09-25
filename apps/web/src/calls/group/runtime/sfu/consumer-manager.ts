@@ -170,7 +170,10 @@ export function createConsumerManager(options: ConsumerManagerOptions) {
                     deviceId: producer.deviceId,
                     kind: consumed.kind,
                   });
-                }
+                },
+                // Required mode is fail-closed: drop cleartext frames instead
+                // of accepting a downgrade (see AUDIT.md C4).
+                frameCryptoRequired
               );
               if (frameCryptoRequired && !receiverFrameCrypto.supported) {
                 throw new Error("Group call frame encryption is required but unsupported by this browser");

@@ -126,11 +126,18 @@ export function createSfuProducerRuntime(
           slot,
           kind: context.kind,
         });
-      }
+      },
+      // In required mode never transmit plaintext frames while the UI reports
+      // E2EE; frames are dropped until a key is armed (see AUDIT.md C4).
+      frameCryptoRequired
     );
     if (frameCryptoRequired && !frameCryptoHandle.supported) {
       frameCryptoHandle.close();
       throw new Error("Group call frame encryption is required but unsupported by this browser");
+    }
+    if (frameCryptoRequired && !localFrameKeyContext) {
+      frameCryptoHandle.close();
+      throw new Error("Group call frame encryption is required but no media key is armed");
     }
     localFrameCryptoHandles.set(slot, frameCryptoHandle);
     logGroupCallInfo("[group-call] sender frame transform attached", {

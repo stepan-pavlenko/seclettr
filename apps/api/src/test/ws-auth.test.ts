@@ -199,6 +199,32 @@ describe("verifyWebSocketToken — rejection cases", () => {
     const payload = { sub: "u1", deviceId: "d1" }; // no tokenUse
     const fastify = fakeFastify(payload);
     const req = fakeRequest({ "sec-websocket-protocol": `${WS_PREFIX}legacy.token` });
-    expect(() => verifyWebSocketToken(fastify, req)).toThrow("WS protocol token must be ws-scoped");
+    expect(() => verifyWebSocketToken(fastify, req)).toThrow(
+      "WS token must be ws- or access-scoped"
+    );
+  });
+
+  it("throws when a guest token is sent via Authorization header", async () => {
+    vi.resetModules();
+    process.env["NODE_ENV"] = "test";
+    const { verifyWebSocketToken } = await loadWsAuth();
+    const payload = { sub: "g1", deviceId: "g1", tokenUse: "guest" };
+    const fastify = fakeFastify(payload);
+    const req = fakeRequest({ authorization: "Bearer guest.token" });
+    expect(() => verifyWebSocketToken(fastify, req)).toThrow(
+      "WS token must be ws- or access-scoped"
+    );
+  });
+
+  it("throws when a contact token is sent via Authorization header", async () => {
+    vi.resetModules();
+    process.env["NODE_ENV"] = "test";
+    const { verifyWebSocketToken } = await loadWsAuth();
+    const payload = { sub: "u1", deviceId: "d1", tokenUse: "contact" };
+    const fastify = fakeFastify(payload);
+    const req = fakeRequest({ authorization: "Bearer contact.token" });
+    expect(() => verifyWebSocketToken(fastify, req)).toThrow(
+      "WS token must be ws- or access-scoped"
+    );
   });
 });

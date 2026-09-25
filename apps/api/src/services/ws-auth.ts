@@ -72,8 +72,10 @@ export function extractWebSocketToken(
  * Throws if:
  *  - No token found
  *  - JWT verification fails
- *  - Token was sent via the protocol header but is not a ws-scoped ticket
- *    (outside dev compatibility mode)
+ *  - The token is not ws-scoped or access-scoped. A `guest`/`contact` token
+ *    (or a legacy token with no scope) must never open the realtime socket.
+ *    Protocol-header tokens must additionally be ws-scoped, since the access
+ *    token is reserved for the Authorization header path.
  */
 export function verifyWebSocketToken(
   fastify: FastifyInstance,
@@ -84,13 +86,20 @@ export function verifyWebSocketToken(
 
   const payload = fastify.jwt.verify<WsAuthResult>(extracted.token);
 
+  const isAccessLike =
+    payload.tokenUse === "access" || payload.tokenUse === "ws";
+  const isLegacyAllowed =
+    ALLOW_LEGACY_PROTOCOL_ACCESS_TOKENS &&
+    (payload.tokenUse === "access" || payload.tokenUse === undefined);
+
+  if (!isAccessLike && !isLegacyAllowed) {
+    throw new Error("WS token must be ws- or access-scoped");
+  }
+
   if (
     extracted.source === "protocol" &&
     payload.tokenUse !== "ws" &&
-    !(
-      ALLOW_LEGACY_PROTOCOL_ACCESS_TOKENS &&
-      (payload.tokenUse === "access" || payload.tokenUse === undefined)
-    )
+    !isLegacyAllowed
   ) {
     throw new Error("WS protocol token must be ws-scoped");
   }

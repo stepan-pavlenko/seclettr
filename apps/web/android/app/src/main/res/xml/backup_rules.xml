@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Android 6–11 Auto Backup exclusion rules.
-  Excludes SharedPreferences files that contain sensitive tokens:
-  - seclettr_push_state: WS auth token + server URL + use_fcm flag
-  - CapacitorStorage: Capacitor Preferences (refresh token, background poll token, server URL)
+  Auto Backup is disabled at the application level (`android:allowBackup="false"`);
+  these rules remain as defense in depth for any tooling or OEM variant that still
+  honors the XML content.
+
+  Excludes:
+  - SharedPreferences files that contain sensitive tokens:
+    - seclettr_push_state: WS auth token + server URL + use_fcm flag
+    - CapacitorStorage: Capacitor Preferences (refresh token, background poll token)
+  - WebView storage under `app_webview/`, which holds IndexedDB (including E2EE
+    key material and cached message plaintext). This domain is not covered by the
+    SharedPreferences exclusions.
 -->
 <full-backup-content>
     <exclude domain="sharedpref" path="seclettr_push_state.xml" />
     <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+    <exclude domain="root" path="app_webview" />
 </full-backup-content>

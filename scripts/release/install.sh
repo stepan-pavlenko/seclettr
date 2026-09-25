@@ -531,6 +531,25 @@ fill_env_secrets() {
   fi
 }
 
+secure_nginx_certs() {
+  local cert_dir="$1"
+
+  # The web image runs nginxinc/nginx-unprivileged (uid/gid 101). Grant read
+  # access to that group without making private keys world-readable.
+  # Fall back to world-readable only if the group cannot be set, so startup
+  # is never broken by a permission change (see AUDIT.md H12).
+  local nginx_gid=101
+  local file
+  for file in "${cert_dir}/cert.pem" "${cert_dir}/key.pem"; do
+    [[ -f "$file" ]] || continue
+    if chgrp "$nginx_gid" "$file" 2>/dev/null; then
+      chmod 640 "$file" 2>/dev/null || true
+    else
+      chmod 644 "$file" 2>/dev/null || true
+    fi
+  done
+}
+
 gen_self_signed_cert() {
   local cert_dir="$1"
   local domain="${2:-localhost}"
@@ -566,7 +585,7 @@ OPENSSL_CFG
     -config "$cfg" \
     2>/dev/null
   rm -f "$cfg"
-  chmod 644 "${cert_dir}/key.pem"
+  secure_nginx_certs "$cert_dir"
 }
 
 is_ip_address() {
@@ -601,7 +620,7 @@ provision_letsencrypt_cert() {
     mkdir -p "$cert_dir"
     cp "$live_dir/fullchain.pem" "$cert_dir/cert.pem"
     cp "$live_dir/privkey.pem"  "$cert_dir/key.pem"
-    chmod 644 "$cert_dir/key.pem"
+    secure_nginx_certs "$cert_dir"
     return 0
   fi
 
@@ -626,7 +645,7 @@ provision_letsencrypt_cert() {
   mkdir -p "$cert_dir"
   cp "$live_dir/fullchain.pem" "$cert_dir/cert.pem"
   cp "$live_dir/privkey.pem"  "$cert_dir/key.pem"
-  chmod 644 "$cert_dir/key.pem"
+  secure_nginx_certs "$cert_dir"
   log_ok "Let's Encrypt certificate obtained for $domain"
 }
 
@@ -642,7 +661,11 @@ docker compose -p ${PROJECT_NAME} --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" 
 certbot renew --quiet
 cp "/etc/letsencrypt/live/${domain}/fullchain.pem" "${cert_dir}/cert.pem"
 cp "/etc/letsencrypt/live/${domain}/privkey.pem" "${cert_dir}/key.pem"
-chmod 644 "${cert_dir}/key.pem"
+if chgrp 101 "${cert_dir}/key.pem" 2>/dev/null; then
+  chmod 640 "${cert_dir}/key.pem"
+else
+  chmod 644 "${cert_dir}/key.pem"
+fi
 docker compose -p ${PROJECT_NAME} --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" start web
 RENEW_SCRIPT
   chmod +x "$renew_script"
@@ -1685,9 +1708,9 @@ configure_network_mode() {
     local key_path="$BUNDLE_DIR/nginx/certs/key.pem"
 
     if [[ -f "$cert_path" && -f "$key_path" ]]; then
-      # Certificate already exists — ensure nginx (root) can read it.
+      # Certificate already exists — ensure the nginx-unprivileged group can read it.
       log_ok "TLS certificate found — using existing nginx/certs/{cert,key}.pem"
-      chmod 644 "$cert_path" "$key_path" 2>/dev/null || true
+      secure_nginx_certs "$BUNDLE_DIR/nginx/certs"
     else
       local cert_domain="${TURN_DOMAIN:-localhost}"
       local cert_ip="${ANNOUNCED_IP:-}"
@@ -1695,7 +1718,7 @@ configure_network_mode() {
 
       if [[ "$effective_cert_mode" == "letsencrypt" ]]; then
         if provision_letsencrypt_cert "$cert_domain" "$LETSENCRYPT_EMAIL" "$BUNDLE_DIR/nginx/certs"; then
-          chmod 644 "$cert_path" "$key_path" 2>/dev/null || true
+          secure_nginx_certs "$BUNDLE_DIR/nginx/certs"
           setup_letsencrypt_renewal "$cert_domain" "$BUNDLE_DIR/nginx/certs"
         else
           log_warn "Let's Encrypt failed — falling back to self-signed certificate"
@@ -1706,7 +1729,6 @@ configure_network_mode() {
       if [[ "$effective_cert_mode" == "selfsigned" ]]; then
         log_step "No TLS certificate found — generating self-signed cert for ${cert_domain}"
         gen_self_signed_cert "$BUNDLE_DIR/nginx/certs" "$cert_domain" "$cert_ip"
-        # gen_self_signed_cert already sets 644 on key.pem
         log_ok "Self-signed certificate written to nginx/certs/"
         log_warn "Self-signed certificate is in use. Browsers will show a security warning."
         log_warn "Replace nginx/certs/cert.pem and key.pem with a trusted certificate for production."
@@ -1867,6 +1889,9 @@ if [[ ! -f "$ENV_FILE" ]]; then
   cp "$ENV_TEMPLATE" "$ENV_FILE"
   GENERATED_ENV=true
 fi
+
+# The env file holds DB/JWT/TURN/VAPID secrets; keep it owner-only.
+chmod 600 "$ENV_FILE" 2>/dev/null || true
 
 set -a
 # shellcheck disable=SC1090

@@ -313,6 +313,7 @@ export function createSfuConsumerRuntime(
         document.removeEventListener("visibilitychange", handleVisibilityChange);
       }
       consumerManager.close();
+      frameKeyStore.zeroize();
     },
   };
 }

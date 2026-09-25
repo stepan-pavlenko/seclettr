@@ -27,6 +27,7 @@ import { getPushPreferences, sendPushToUser } from "../../services/push.js";
 import { buildGroupMessagePushPayload } from "../../services/push-payloads.js";
 import { hasActiveConnectionForUserAcrossCluster } from "../../services/websocket.js";
 import { buildDownloadUrl } from "./attachments.js";
+import { isVisibleGroupReplyTarget } from "./reply-target.js";
 import { resolveBrowserOrigin } from "../../utils/request-origin.js";
 import { config } from "../../config.js";
 import {
@@ -780,6 +781,18 @@ export async function plainGroupRoutes(fastify: FastifyInstance): Promise<void> 
           return reply.code(403).send({ error: "Attachment not owned by sender" });
         }
         attMeta = att;
+      }
+
+      // A reply target must belong to this group and not be deleted; otherwise
+      // the history JOIN would disclose another conversation's message body.
+      if (body.replyToId) {
+        const replyTargetVisible = await isVisibleGroupReplyTarget({
+          replyToId: body.replyToId,
+          groupId,
+        });
+        if (!replyTargetVisible) {
+          return reply.code(400).send({ error: "Reply target not found in this group" });
+        }
       }
 
       const newMsgId = randomUUID();

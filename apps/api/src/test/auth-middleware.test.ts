@@ -4,9 +4,22 @@
  * Verifies that only access tokens pass, while ws and contact tokens
  * are rejected with 401 — ensuring the fix from TASK-007 holds.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireAuth } from "../middleware/auth.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
+
+const isAuthSessionActive = vi.fn();
+
+vi.mock("../services/auth-session.js", () => ({
+  isAuthSessionActive: (...args: unknown[]) => isAuthSessionActive(...args),
+  invalidateAuthSessionCache: vi.fn(),
+  invalidateAuthSessionCacheMany: vi.fn(),
+}));
+
+beforeEach(() => {
+  isAuthSessionActive.mockReset();
+  isAuthSessionActive.mockResolvedValue(true);
+});
 
 function buildReply(): { reply: FastifyReply; code: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> } {
   const send = vi.fn().mockResolvedValue(undefined);
@@ -71,6 +84,20 @@ describe("requireAuth — rejected token types", () => {
 
     await requireAuth(req, reply);
 
+    expect(code).toHaveBeenCalledWith(401);
+    expect(send).toHaveBeenCalledWith({ error: "Unauthorized" });
+  });
+});
+
+describe("requireAuth — session revocation", () => {
+  it("rejects an access token whose session is no longer active", async () => {
+    isAuthSessionActive.mockResolvedValueOnce(false);
+    const req = buildRequest({ sub: "u1", deviceId: "d1", tokenUse: "access", sessionId: "s1", iat: 0, exp: 9999999999 });
+    const { reply, code, send } = buildReply();
+
+    await requireAuth(req, reply);
+
+    expect(isAuthSessionActive).toHaveBeenCalledWith("s1");
     expect(code).toHaveBeenCalledWith(401);
     expect(send).toHaveBeenCalledWith({ error: "Unauthorized" });
   });

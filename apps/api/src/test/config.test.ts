@@ -55,9 +55,9 @@ describe("config ALLOW_PUBLIC_REGISTRATION parsing", () => {
     delete process.env["ALLOW_PUBLIC_REGISTRATION"];
   });
 
-  it("defaults to true when env var is missing", async () => {
+  it("defaults to false when env var is missing (fail closed)", async () => {
     const { config } = await import("../config.js");
-    expect(config.ALLOW_PUBLIC_REGISTRATION).toBe(true);
+    expect(config.ALLOW_PUBLIC_REGISTRATION).toBe(false);
   });
 
   it.each(["false", "0", "no", "off"])(

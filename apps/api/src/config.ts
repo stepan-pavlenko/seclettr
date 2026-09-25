@@ -11,10 +11,15 @@ import { z } from "zod";
 // When running via `tsx watch` through turbo/pnpm, shell env vars are NOT
 // forwarded to child processes. This block reads infra/.env synchronously
 // BEFORE Zod validation so DATABASE_URL etc. are available at parse time.
-// It is strictly disabled in production: production must inject env vars
-// directly, never from a bundled file.
+//
+// It is opt-in only: loading arbitrary checked-out .env files into a running
+// server is a security hazard (a misconfigured production process would
+// silently consume dev secrets). Enable with SECLETTR_ALLOW_DEV_ENV_FILE=1,
+// or run under NODE_ENV=test. Never loads when NODE_ENV=production.
 if (
   process.env["NODE_ENV"] !== "production" &&
+  (process.env["NODE_ENV"] === "test" ||
+    process.env["SECLETTR_ALLOW_DEV_ENV_FILE"] === "1") &&
   !process.env["DATABASE_URL"]
 ) {
   const infraDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../infra");
@@ -51,6 +56,21 @@ const EnvBooleanSchema = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+// Fail-closed boolean: an unset/empty value resolves to false. Used for
+// security-sensitive toggles such as public registration, so a missing env
+// var never silently enables an open endpoint (see AUDIT.md H2).
+const EnvBooleanDefaultFalseSchema = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "off"].includes(normalized)) return false;
+  }
+  return value;
+}, z.boolean());
+
 const ConfigSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -62,7 +82,7 @@ const ConfigSchema = z.object({
   JWT_ACCESS_TTL: z.string().default("15m"),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().default(30),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
-  ALLOW_PUBLIC_REGISTRATION: EnvBooleanSchema,
+  ALLOW_PUBLIC_REGISTRATION: EnvBooleanDefaultFalseSchema,
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_PUBLIC_URL: z.string().optional(),
   S3_BUCKET: z.string().default("seclettr-attachments"),

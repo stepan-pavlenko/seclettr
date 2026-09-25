@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { requireAuth } from "../../middleware/auth.js";
 import { query, transaction } from "../../db/pool.js";
 import { publishMessage, redis } from "../../services/redis.js";
+import { invalidateAuthSessionCacheMany } from "../../services/auth-session.js";
 import {
   ensureDirectRelationship,
   resolveUserRelationshipAccess,
@@ -340,6 +341,11 @@ export async function deviceRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: "Cannot revoke the current device" });
       }
 
+      const sessionRows = await query<{ id: string }>(
+        "SELECT id FROM auth_sessions WHERE device_id = $1",
+        [deviceId]
+      );
+
       const result = await query(
         "DELETE FROM devices WHERE id = $1 AND user_id = $2 RETURNING id",
         [deviceId, userId]
@@ -347,6 +353,9 @@ export async function deviceRoutes(fastify: FastifyInstance): Promise<void> {
       if (result.length === 0) {
         return reply.code(404).send({ error: "Device not found" });
       }
+      // The device's auth_sessions are removed by ON DELETE CASCADE; drop any
+      // cached liveness entries so its access tokens stop working immediately.
+      await invalidateAuthSessionCacheMany(sessionRows.map((row) => row.id));
       return { ok: true };
     }
   );

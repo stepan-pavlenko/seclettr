@@ -5,7 +5,8 @@
  *   - computeMediaKeyAckProof — signs PROOF_LABEL || keyId:epoch with the raw key,
  *     producing a base64url-encoded HMAC-SHA-256 proof; called by the key recipient
  *   - verifyMediaKeyAckProof — verifies the proof using the sender's raw key;
- *     accepts absent proofs (returns true) for backward compatibility with old clients
+ *     a missing proof is rejected (fail closed) so a peer cannot forge delivery
+ *     confirmation for a key it never received
  *
  * Does not own delivery tracking, key exchange, or WS signaling.
  * The proof binds epoch so the same keyId at a different epoch produces a distinct proof.
@@ -50,9 +51,9 @@ export async function computeMediaKeyAckProof(
 
 /**
  * Verify that the ACK proof matches the raw key we sent.
- * Returns true if the proof is valid, false if invalid.
- * Returns true (accept) if proof is absent — backward compat with old clients
- * that do not yet send keyProof.
+ * Returns true if the proof is valid, false if invalid or absent.
+ * A missing proof is rejected: accepting it would let any peer forge a
+ * delivery confirmation for a key it never received (see AUDIT.md H7).
  */
 export async function verifyMediaKeyAckProof(
   rawKey: Uint8Array,
@@ -60,7 +61,7 @@ export async function verifyMediaKeyAckProof(
   epoch: number,
   proof: string | undefined
 ): Promise<boolean> {
-  if (!proof) return true;
+  if (!proof) return false;
   try {
     const cryptoKey = await importHmacKey(rawKey);
     const keyIdBytes = new TextEncoder().encode(`${keyId}:${epoch}`);

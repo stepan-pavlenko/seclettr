@@ -58,9 +58,21 @@ export function createFrameKeyStore(options: FrameKeyStoreOptions) {
   const getContextsForDevice = (deviceId: string) =>
     remoteFrameKeyContextsByDeviceId.get(deviceId) ?? [];
 
+  // Zero raw key bytes before dropping contexts so media key material does not
+  // linger in the heap after the call ends (AUDIT.md H8).
+  const zeroize = () => {
+    for (const contexts of remoteFrameKeyContextsByDeviceId.values()) {
+      for (const context of contexts) {
+        context.keyBytes.fill(0);
+      }
+    }
+    remoteFrameKeyContextsByDeviceId.clear();
+  };
+
   return {
     remoteFrameKeyContextsByDeviceId,
     setRemoteMediaKey,
     getContextsForDevice,
+    zeroize,
   };
 }

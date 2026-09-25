@@ -46,9 +46,18 @@ export function useGroupCallInboundAckVerification(params: Params) {
       if (!tracker) return;
 
       const localKey = p.localMediaKeyRef.current;
-      const rawKey = localKey?.keyId === msg.keyId ? localKey.keyBytes : null;
+      if (!localKey || localKey.keyId !== msg.keyId) {
+        // No matching local key: we never sent this key, so the ACK cannot be
+        // authentic. Never verify against a zero key (see AUDIT.md H7).
+        logGroupCallWarn("[gc] media-key.ack for unknown keyId, ignoring", {
+          callId,
+          senderDeviceId: msg.senderDeviceId,
+          keyId: msg.keyId,
+        });
+        return;
+      }
 
-      verifyMediaKeyAckProof(rawKey ?? new Uint8Array(32), msg.keyId, msg.epoch, msg.keyProof)
+      verifyMediaKeyAckProof(localKey.keyBytes, msg.keyId, msg.epoch, msg.keyProof)
         .then((valid) => {
           if (!active) return;
           if (!valid) {

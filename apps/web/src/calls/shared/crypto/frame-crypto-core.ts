@@ -59,6 +59,14 @@ export interface FrameCryptoRuntime {
   direction: FrameCryptoDirection;
   additionalData: Uint8Array;
   keyStates: MutableKeyState[];
+  /**
+   * When true the pipeline is fail-closed: it never emits or accepts a
+   * plaintext frame. In `required` mode the sender drops frames until a key is
+   * armed and the receiver drops any non-magic frame instead of trusting it.
+   * When false (best-effort) legacy plaintext passthrough is preserved for
+   * mixed-version rollout.
+   */
+  requireEncryption?: boolean;
 }
 
 export interface FrameCryptoWorkerConfigMessage {
@@ -67,6 +75,7 @@ export interface FrameCryptoWorkerConfigMessage {
   direction: FrameCryptoDirection;
   context: GroupCallFrameCryptoContext;
   keyContexts: readonly GroupCallFrameKeyContext[];
+  requireEncryption?: boolean;
 }
 
 export interface FrameCryptoWorkerCloseMessage {
@@ -280,19 +289,26 @@ export async function processFrameBuffer(
   runtime: FrameCryptoRuntime
 ): Promise<ArrayBuffer | null> {
   const data = new Uint8Array(frameData);
+  const requireEncryption = runtime.requireEncryption === true;
+
   if (runtime.direction === "send") {
     const primaryKeyState = runtime.keyStates[0] ?? null;
     const cryptoKey = primaryKeyState
       ? await resolveImportedKey(primaryKeyState)
       : null;
     if (!cryptoKey || !primaryKeyState?.rawKey) {
-      return frameData;
+      // Fail closed: in required mode never transmit an unencrypted frame.
+      // Dropping (null) is safe for the media pipeline; emitting plaintext
+      // while the UI reports E2EE is not.
+      return requireEncryption ? null : frameData;
     }
     return encryptFramePayload(data, cryptoKey, runtime.additionalData);
   }
 
   if (!startsWithMagic(data)) {
-    return frameData;
+    // Fail closed: in required mode a peer must not be able to downgrade the
+    // stream by sending cleartext frames that the decoder would accept.
+    return requireEncryption ? null : frameData;
   }
 
   if (runtime.keyStates.length === 0 || data.length < MIN_ENCRYPTED_FRAME_LENGTH) {

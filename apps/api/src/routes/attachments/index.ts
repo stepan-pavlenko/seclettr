@@ -193,13 +193,71 @@ async function fetchAttachmentObjectBytes(storageKey: string): Promise<Uint8Arra
     : new Uint8Array(await body.transformToByteArray());
 }
 
+/**
+ * Hash an attachment object without buffering it in memory.
+ *
+ * `MAX_ATTACHMENT_BYTES` defaults to 100 MiB; loading whole blobs to hash them
+ * let concurrent verifications exhaust the heap (AUDIT.md H3). This streams the
+ * S3 body into a running SHA-256 instead. Reading stops once the object exceeds
+ * the configured maximum — the caller's size check then rejects it.
+ */
+async function hashAttachmentObjectStream(
+  storageKey: string
+): Promise<{ size: number; digest: string } | null> {
+  if (USE_IN_MEMORY_ATTACHMENT_STORAGE) {
+    const bytes = inMemoryAttachmentObjects.get(storageKey);
+    if (!bytes) return null;
+    return {
+      size: bytes.byteLength,
+      digest: createHash("sha256").update(bytes).digest("base64url"),
+    };
+  }
+
+  let object;
+  try {
+    object = await s3.send(
+      new GetObjectCommand({ Bucket: config.S3_BUCKET, Key: storageKey })
+    );
+  } catch (error) {
+    if (isMissingAttachmentObjectError(error)) {
+      return null;
+    }
+    throw error;
+  }
+
+  const body = object.Body;
+  if (!body) {
+    return null;
+  }
+
+  const hash = createHash("sha256");
+  let size = 0;
+
+  if (typeof (body as AsyncIterable<Uint8Array>)[Symbol.asyncIterator] === "function") {
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buf.length;
+      hash.update(buf);
+      if (size > config.MAX_ATTACHMENT_BYTES) {
+        return { size, digest: hash.digest("base64url") };
+      }
+    }
+  } else {
+    const bytes = new Uint8Array(await body.transformToByteArray());
+    size = bytes.byteLength;
+    hash.update(bytes);
+  }
+
+  return { size, digest: hash.digest("base64url") };
+}
+
 async function verifyAttachmentObject(
   attachmentId: string,
   att: AttachmentRow
 ): Promise<{ ok: true } | { ok: false; status: number; error: string; markFailed?: boolean }> {
   const expectedSize = Number.parseInt(att.encrypted_size, 10);
-  const bytes = await fetchAttachmentObjectBytes(att.storage_key);
-  if (!bytes) {
+  const hashed = await hashAttachmentObjectStream(att.storage_key);
+  if (!hashed) {
     return { ok: false, status: 409, error: "Attachment object not ready" };
   }
   await query(
@@ -210,7 +268,7 @@ async function verifyAttachmentObject(
        AND upload_state IN ('initialized', 'uploaded')`,
     [attachmentId]
   );
-  if (bytes.byteLength !== expectedSize) {
+  if (hashed.size !== expectedSize) {
     return {
       ok: false,
       status: 400,
@@ -219,8 +277,7 @@ async function verifyAttachmentObject(
     };
   }
 
-  const digest = createHash("sha256").update(bytes).digest("base64url");
-  if (digest !== att.encrypted_digest) {
+  if (hashed.digest !== att.encrypted_digest) {
     return {
       ok: false,
       status: 400,

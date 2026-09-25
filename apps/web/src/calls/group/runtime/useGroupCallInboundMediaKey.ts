@@ -89,22 +89,11 @@ export function useGroupCallInboundMediaKey(params: Params) {
                 }
               );
             })
-            .catch(() => {
+            .catch((proofError) => {
+              // The proof is mandatory (see AUDIT.md H7); sending an ACK
+              // without it would be rejected by the sender anyway.
               if (cancelled) return;
-              wsClient.send(
-                {
-                  type: "group.call.media-key.ack",
-                  callId,
-                  targetDeviceId: decrypted.senderDeviceId,
-                  epoch: decrypted.epoch,
-                  keyId: decrypted.keyId,
-                },
-                {
-                  queueIfDisconnected: true,
-                  queueKey: `group.call.media-key.ack:${callId}:${decrypted.senderDeviceId}:${decrypted.keyId}`,
-                  ttlMs: 15_000,
-                }
-              );
+              logGroupCallWarn("[gc] media-key ack proof computation failed; ack not sent", proofError);
             });
         })
         .catch((decryptError) => {

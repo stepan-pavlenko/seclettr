@@ -18,6 +18,7 @@ import { getPushPreferences, sendPushToUser } from "../../services/push.js";
 import { buildDirectMessagePushPayload } from "../../services/push-payloads.js";
 import { hasActiveConnectionForUserAcrossCluster } from "../../services/websocket.js";
 import { buildDownloadUrl } from "./attachments.js";
+import { isVisibleDirectReplyTarget } from "./reply-target.js";
 import { resolveBrowserOrigin } from "../../utils/request-origin.js";
 import {
   SendPlainMessageRequestSchema,
@@ -178,6 +179,19 @@ export async function plainMessageRoutes(fastify: FastifyInstance): Promise<void
           return reply.code(403).send({ error: "Attachment not owned by sender" });
         }
         attMeta = att;
+      }
+
+      // A reply target must be visible in this exact thread; otherwise the
+      // history JOIN would disclose another conversation's message body.
+      if (body.replyToId) {
+        const replyTargetVisible = await isVisibleDirectReplyTarget({
+          replyToId: body.replyToId,
+          userId,
+          recipientUserId,
+        });
+        if (!replyTargetVisible) {
+          return reply.code(400).send({ error: "Reply target not found in this conversation" });
+        }
       }
 
       const newMsgId = randomUUID();

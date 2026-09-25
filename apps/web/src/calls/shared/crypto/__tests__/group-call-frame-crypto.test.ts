@@ -6,6 +6,10 @@ import {
   decryptGroupCallFrameWithKeyContexts,
   encryptGroupCallFrame,
 } from "@/calls/shared/crypto/frame-crypto";
+import {
+  normalizeKeyInput,
+  processFrameBuffer,
+} from "@/calls/shared/crypto/frame-crypto-core";
 
 describe("group-call-frame-crypto", () => {
   const originalWindow = globalThis.window;
@@ -105,6 +109,47 @@ describe("group-call-frame-crypto", () => {
     );
 
     expect(new TextDecoder().decode(decrypted)).toBe("legacy-frame");
+  });
+
+  describe("processFrameBuffer fail-closed behavior", () => {
+    const additionalData = new TextEncoder().encode("seclettr.group-call.frame:test");
+
+    it("drops send frames instead of emitting plaintext when no key is armed in required mode", async () => {
+      const plaintext = new TextEncoder().encode("must-not-leak");
+      const output = await processFrameBuffer(plaintext.buffer.slice(0), {
+        direction: "send",
+        additionalData,
+        keyStates: [],
+        requireEncryption: true,
+      });
+
+      expect(output).toBeNull();
+    });
+
+    it("drops received cleartext frames in required mode", async () => {
+      const cleartext = new TextEncoder().encode("downgrade-attempt");
+      const output = await processFrameBuffer(cleartext.buffer.slice(0), {
+        direction: "recv",
+        additionalData,
+        keyStates: normalizeKeyInput(crypto.getRandomValues(new Uint8Array(32))),
+        requireEncryption: true,
+      });
+
+      expect(output).toBeNull();
+    });
+
+    it("still passes through cleartext in best-effort mode", async () => {
+      const cleartext = new TextEncoder().encode("legacy-passthrough");
+      const output = await processFrameBuffer(cleartext.buffer.slice(0), {
+        direction: "recv",
+        additionalData,
+        keyStates: [],
+        requireEncryption: false,
+      });
+
+      expect(output).not.toBeNull();
+      expect(new TextDecoder().decode(output!)).toBe("legacy-passthrough");
+    });
   });
 
   it("decrypts with the previous key context after media-key rotation", async () => {

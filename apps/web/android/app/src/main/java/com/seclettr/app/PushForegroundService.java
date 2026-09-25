@@ -247,10 +247,12 @@ public class PushForegroundService extends Service {
                 .build();
         }
 
-        String protocolHeader = "seclettr.v1, seclettr.auth." + token;
+        // The access token must travel in the Authorization header. Passing it
+        // via Sec-WebSocket-Protocol is rejected by the server outside dev
+        // because that channel only accepts ws-scoped tickets (AUDIT.md H5).
         Request request = new Request.Builder()
             .url(wsUrl)
-            .addHeader("Sec-WebSocket-Protocol", protocolHeader)
+            .addHeader("Authorization", "Bearer " + token)
             .build();
 
         Log.d(TAG, "Connecting WebSocket: " + wsUrl);

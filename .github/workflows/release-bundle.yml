@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: release-bundle-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-release-bundle:
@@ -46,19 +46,11 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: gradle
-
       - name: Print toolchain
         run: |
           node --version
           npm --version
           pnpm --version
-          java -version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -180,15 +172,6 @@ jobs:
             pnpm release:build -- "${COMMON_ARGS[@]}"
           fi
 
-      - name: Rebuild workspace packages before Android
-        run: |
-          pnpm --filter @seclettr/crypto build
-          pnpm --filter @seclettr/protocol build
-
-      - name: Build Android release artifacts
-        shell: bash
-        run: pnpm --filter @seclettr/web run android:build:release
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -200,9 +183,7 @@ jobs:
           files: |
             artifacts/*.tar.gz
             artifacts/*.sha256
-            apps/web/android/app/build/outputs/apk/release/app-release.apk
-            apps/web/android/app/build/outputs/bundle/release/app-release.aab
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
 
       - name: Upload artifact — bundle
         uses: actions/upload-artifact@v4
@@ -212,14 +193,4 @@ jobs:
             artifacts/*.tar.gz
             artifacts/*.sha256
           if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload artifact — APK / AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: seclettr-release-apk
-          path: |
-            apps/web/android/app/build/outputs/apk/release/app-release.apk
-            apps/web/android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: warn
           retention-days: 30

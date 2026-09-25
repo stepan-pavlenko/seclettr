@@ -45,6 +45,7 @@ interface TransformRuntimeState {
   direction: FrameCryptoDirection;
   additionalData: Uint8Array;
   keyStates: MutableKeyState[];
+  requireEncryption: boolean;
   closed: boolean;
   pipelineStarted: boolean;
 }
@@ -72,6 +73,7 @@ function ensureRuntime(options: {
     direction: options.direction,
     additionalData: buildAssociatedData(options.context),
     keyStates: [],
+    requireEncryption: false,
     closed: false,
     pipelineStarted: false,
   };
@@ -83,6 +85,7 @@ function updateRuntime(message: FrameCryptoWorkerConfigMessage): void {
   const runtime = ensureRuntime(message);
   clearMutableKeyStates(runtime.keyStates);
   runtime.keyStates = normalizeKeyInput(message.keyContexts);
+  runtime.requireEncryption = message.requireEncryption === true;
 }
 
 function closeRuntime(handleId: string): void {

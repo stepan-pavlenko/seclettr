@@ -10,6 +10,7 @@ import { parseVersionedOrReply } from "../../utils/validation.js";
 import { buildRefreshToken, parseRefreshToken } from "../../utils/refresh-token.js";
 import { recordAuthEvent } from "../../services/observability.js";
 import { publishForceDisconnect } from "../../services/redis.js";
+import { invalidateAuthSessionCache } from "../../services/auth-session.js";
 import { appendAuditEvent } from "../../services/audit-log.js";
 import {
   AUTH_PROTOCOL_VERSION,
@@ -641,6 +642,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           ).catch(() => false);
           if (valid) {
             await query("DELETE FROM auth_sessions WHERE id = $1", [parsedRefresh.sessionId]);
+            await invalidateAuthSessionCache(parsedRefresh.sessionId);
             await query(
               "DELETE FROM background_poll_tokens WHERE device_id = $1",
               [sessions[0]!.device_id]

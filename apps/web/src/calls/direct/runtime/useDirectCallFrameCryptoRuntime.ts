@@ -164,6 +164,13 @@ export function useDirectCallFrameCryptoRuntime({
       handle.close();
     }
     directCallReceiverFrameHandlesRef.current.clear();
+    // Zero derived media keys before dropping the reference so plaintext key
+    // material does not linger in the heap after teardown (AUDIT.md H8).
+    const cryptoState = directCallFrameCryptoStateRef.current;
+    if (cryptoState) {
+      cryptoState.sendKeyBytes.fill(0);
+      cryptoState.recvKeyBytes.fill(0);
+    }
     directCallFrameCryptoStateRef.current = null;
     clearEphemeralState();
     debugCallMedia("frame-crypto-closed", {
@@ -257,7 +264,10 @@ export function useDirectCallFrameCryptoRuntime({
             slot,
             kind,
           });
-        }
+        },
+        // frame-v1 is an explicitly negotiated E2EE mode, so the pipeline is
+        // fail-closed: never emit a plaintext frame (see AUDIT.md C4).
+        true
       );
       binding.handle = nextHandle;
       binding.sender = sender;
@@ -345,7 +355,10 @@ export function useDirectCallFrameCryptoRuntime({
           callId,
           kind,
         });
-      }
+      },
+      // Negotiated frame-v1 is fail-closed: reject cleartext frames rather than
+      // accepting a downgrade (see AUDIT.md C4).
+      true
     );
     handles.set(receiver, handle);
     debugCallMedia("frame-crypto-receiver-bound", {

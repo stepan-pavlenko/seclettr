@@ -217,6 +217,8 @@ services:
       context: ..
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "0.0.0.0:80:8080"
       - "0.0.0.0:443:8443"
@@ -226,7 +228,10 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/runtime-config.js:/usr/share/nginx/html/runtime-config.js:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/runtime-config.js | grep -q '__SECLETTR_RUNTIME_CONFIG__'"]
+      # Default NGINX_CONFIG=nginx.conf serves TLS on 8443 and 301-redirects 8080;
+      # NGINX_CONFIG=nginx.http.conf serves plain HTTP on 8080. Probe both so the
+      # same base compose works in either mode.
+      test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://127.0.0.1:8443/runtime-config.js 2>/dev/null | grep -q '__SECLETTR_RUNTIME_CONFIG__' || wget -qO- http://127.0.0.1:8080/runtime-config.js 2>/dev/null | grep -q '__SECLETTR_RUNTIME_CONFIG__'"]
       interval: 10s
       timeout: 5s
       retries: 5

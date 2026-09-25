@@ -52,6 +52,7 @@ import {
   recordWebSocketDisconnected,
 } from "./observability.js";
 import { query } from "../db/pool.js";
+import { isAuthSessionActive } from "./auth-session.js";
 
 /* ── Signal runner (sequencer for stateful messages) ──────────────────────── */
 
@@ -231,6 +232,13 @@ export async function registerWebSocketHandler(
     try {
       auth = verifyWebSocketToken(fastify, request);
     } catch {
+      socket.close(4001, "Unauthorized");
+      return;
+    }
+
+    // A revoked session must not be able to open a fresh socket; otherwise an
+    // access token survives logout until expiry (AUDIT.md H4).
+    if (auth.sessionId && !(await isAuthSessionActive(auth.sessionId))) {
       socket.close(4001, "Unauthorized");
       return;
     }

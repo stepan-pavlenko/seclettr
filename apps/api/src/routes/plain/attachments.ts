@@ -98,7 +98,14 @@ export async function buildDownloadUrl(storageKey: string, requestOrigin?: strin
   if (USE_IN_MEMORY) {
     return `https://in-memory.invalid/${encodeURIComponent(storageKey)}`;
   }
-  const cmd = new GetObjectCommand({ Bucket: PLAIN_BUCKET, Key: storageKey });
+  const cmd = new GetObjectCommand({
+    Bucket: PLAIN_BUCKET,
+    Key: storageKey,
+    // Plain attachments are user-controlled bytes served from the app origin.
+    // Force a download disposition so a malicious HTML/SVG upload cannot be
+    // rendered as an executable document on the app origin (see AUDIT.md C5).
+    ResponseContentDisposition: "attachment",
+  });
   const url = await getSignedUrl(s3, cmd, { expiresIn: PRESIGNED_DOWNLOAD_TTL_SEC });
   return rewriteS3Url(url, requestOrigin);
 }

@@ -71,6 +71,19 @@ function normalizeString(value, fallback = "") {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
 }
 
+// pnpm emits `versions: string[]` and `paths: string[]` per entry. Older
+// versions used singular `version`/`path`. Accept both so the generator does
+// not silently skip every package (see AUDIT.md H9).
+function toStringArray(value) {
+  if (Array.isArray(value)) {
+    return value.filter((item) => typeof item === "string" && item.trim().length > 0);
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    return [value.trim()];
+  }
+  return [];
+}
+
 function escapeCell(value) {
   return String(value).replaceAll("|", String.raw`\|`).replaceAll("\n", " ");
 }
@@ -88,40 +101,45 @@ for (const [licenseGroup, entries] of Object.entries(parsed)) {
     }
 
     const name = normalizeString(rawEntry.name);
-    const version = normalizeString(rawEntry.version);
-    if (!name || !version) {
+    const versions = toStringArray(rawEntry.versions ?? rawEntry.version);
+    if (!name || versions.length === 0) {
       continue;
     }
 
-    const key = `${name}@${version}`;
+    const paths = toStringArray(rawEntry.paths ?? rawEntry.path);
     const license = normalizeString(rawEntry.license, normalizeString(licenseGroup, "UNKNOWN"));
     const homepage = normalizeString(rawEntry.homepage);
     const author = normalizeString(rawEntry.author);
-    const packagePath = normalizeString(rawEntry.path);
-    const licenseFile = detectLicenseFile(packagePath);
 
-    const previous = packageMap.get(key);
-    if (!previous) {
+    for (let index = 0; index < versions.length; index += 1) {
+      const version = versions[index];
+      const packagePath = paths[index] ?? paths[0] ?? "";
+      const key = `${name}@${version}`;
+      const licenseFile = detectLicenseFile(packagePath);
+
+      const previous = packageMap.get(key);
+      if (!previous) {
+        packageMap.set(key, {
+          name,
+          version,
+          license,
+          homepage,
+          author,
+          licenseFile,
+        });
+        continue;
+      }
+
+      // Keep the richer record when duplicates appear.
       packageMap.set(key, {
         name,
         version,
-        license,
-        homepage,
-        author,
-        licenseFile,
+        license: previous.license || license,
+        homepage: previous.homepage || homepage,
+        author: previous.author || author,
+        licenseFile: previous.licenseFile || licenseFile,
       });
-      continue;
     }
-
-    // Keep the richer record when duplicates appear.
-    packageMap.set(key, {
-      name,
-      version,
-      license: previous.license || license,
-      homepage: previous.homepage || homepage,
-      author: previous.author || author,
-      licenseFile: previous.licenseFile || licenseFile,
-    });
   }
 }
 
@@ -134,8 +152,15 @@ const packages = [...packageMap.values()].sort((a, b) => {
 });
 
 if (packages.length === 0) {
-  console.log("[licenses] no production dependencies discovered");
-  process.exit(0);
+  // A successful `pnpm licenses list` on this workspace always yields packages.
+  // Zero results therefore means the parser missed pnpm's schema, not that the
+  // project has no production dependencies. Fail closed instead of silently
+  // passing `--check` (see AUDIT.md H9).
+  console.error(
+    "[licenses] no production dependencies discovered; refusing to treat this as success. " +
+      "Inspect `pnpm licenses list --prod --json` output against scripts/generate-third-party-notices.mjs."
+  );
+  process.exit(5);
 }
 
 const summary = new Map();

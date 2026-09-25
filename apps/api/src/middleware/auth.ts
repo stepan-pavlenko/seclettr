@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { query } from "../db/pool.js";
+import { isAuthSessionActive } from "../services/auth-session.js";
 
 export interface AuthPayload {
   sub: string;        // userId (or guestSessionId for guests)
@@ -29,6 +30,12 @@ export async function requireAuth(
     const payload = request.user as AuthPayload;
     // Only access tokens are valid for HTTP API routes.
     if (payload.tokenUse !== "access") {
+      await reply.code(401).send({ error: "Unauthorized" });
+      return;
+    }
+    // A stateless access token must still map to a live session, otherwise
+    // logout/device revocation would not take effect until token expiry (H4).
+    if (!(await isAuthSessionActive(payload.sessionId))) {
       await reply.code(401).send({ error: "Unauthorized" });
       return;
     }
@@ -98,6 +105,15 @@ export async function requireGuestOrAuth(
     await request.jwtVerify();
     const payload = request.user as AuthPayload;
     if (payload.tokenUse !== "access" && payload.tokenUse !== "guest") {
+      await reply.code(401).send({ error: "Unauthorized" });
+      return;
+    }
+    // Authenticated access tokens must map to a live session; guest tokens are
+    // validated against room_guest_sessions by the route instead (H4).
+    if (
+      payload.tokenUse === "access" &&
+      !(await isAuthSessionActive(payload.sessionId))
+    ) {
       await reply.code(401).send({ error: "Unauthorized" });
       return;
     }
