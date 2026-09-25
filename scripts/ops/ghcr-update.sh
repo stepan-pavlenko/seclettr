@@ -16,7 +16,7 @@ _sc="$(readlink -f "${BASH_SOURCE[0]}")" && SCRIPT_DIR="$(cd -- "$(dirname -- "$
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 GHCR_REGISTRY="ghcr.io"
-GHCR_NAMESPACE="pavlenkosa/seclettr"
+GHCR_NAMESPACE="stepan-pavlenko/seclettr"
 IMAGE_TAG="latest"
 SECLETTR_VERSION="$(node -e "console.log(require('$ROOT_DIR/package.json').version)")"
 COMPOSE_DIR="${SECLETTR_COMPOSE_DIR:-/opt/seclettr}"

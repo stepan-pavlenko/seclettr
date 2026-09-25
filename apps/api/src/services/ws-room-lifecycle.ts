@@ -1,5 +1,4 @@
 import type { FastifyInstance } from "fastify";
-import type { WebSocket } from "ws";
 import type { WsClientMessage, WsServerMessage } from "@seclettr/protocol";
 import { query } from "../db/pool.js";
 import {
@@ -26,22 +25,6 @@ type ActiveRoomSession = {
   group_id: string | null;
 };
 
-type GroupCallMediaKeyMessage = Extract<
-  WsClientMessage,
-  { type: "group.call.media-key" }
->;
-type GroupCallMediaKeyAckMessage = Extract<
-  WsClientMessage,
-  { type: "group.call.media-key.ack" }
->;
-type GroupCallMediaModeMessage = Extract<
-  WsClientMessage,
-  { type: "group.call.media-mode" }
->;
-type GroupCallProducerStateMessage = Extract<
-  WsClientMessage,
-  { type: "group.call.producer_state" }
->;
 type GroupProducerLifecycleEvent = Extract<
   WsServerMessage,
   { type: "group.call.producer_state" }

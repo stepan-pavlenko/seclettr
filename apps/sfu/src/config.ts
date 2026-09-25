@@ -39,8 +39,12 @@ function loadFallbackEnvFile(): void {
   }
 }
 
-// Load fallback env file only when JWT_SECRET is not available in the environment.
-if (!process.env["JWT_SECRET"]) {
+// Load fallback env file only in non-production when JWT_SECRET is not
+// available in the environment. Production must inject env vars directly.
+if (
+  process.env["NODE_ENV"] !== "production" &&
+  !process.env["JWT_SECRET"]
+) {
   loadFallbackEnvFile();
 }
 

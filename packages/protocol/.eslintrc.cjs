@@ -34,8 +34,11 @@ module.exports = {
   overrides: [
     {
       files: ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
+      parserOptions: {
+        project: null,
+      },
       rules: {
-        "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+        "@typescript-eslint/no-unnecessary-type-assertion": "off",
       },
     },
   ],

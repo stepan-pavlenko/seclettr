@@ -2,6 +2,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../native-platform", () => ({
+  isNativePlatform: () => true,
+}));
+
 interface BackButtonPlugin {
   addListener: (event: string, handler: (data: { canGoBack: boolean }) => void) => Promise<{ remove: () => void }>;
   exitApp: () => Promise<void>;

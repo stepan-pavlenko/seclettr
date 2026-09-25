@@ -32,7 +32,7 @@ LABEL org.opencontainers.image.title="Seclettr Web"
 LABEL org.opencontainers.image.version="${SECLETTR_VERSION}"
 LABEL org.opencontainers.image.revision="${GIT_REVISION}"
 LABEL org.opencontainers.image.created="${BUILD_TIMESTAMP}"
-LABEL org.opencontainers.image.source="https://github.com/pavlenkosa/seclettr"
+LABEL org.opencontainers.image.source="https://github.com/stepan-pavlenko/seclettr"
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8080

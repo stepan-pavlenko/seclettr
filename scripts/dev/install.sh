@@ -170,7 +170,12 @@ ensure_pnpm() {
   require_command corepack
   log_step "Enabling corepack and pnpm"
   corepack enable
-  corepack prepare pnpm@8.15.0 --activate
+  local pnpm_version
+  pnpm_version="$(node -p "require('${ROOT_DIR}/package.json').packageManager.split('@').pop()" 2>/dev/null || true)"
+  if [[ -z "$pnpm_version" ]]; then
+    pnpm_version="11.4.0"
+  fi
+  corepack prepare "pnpm@${pnpm_version}" --activate
   require_command pnpm
 }
 

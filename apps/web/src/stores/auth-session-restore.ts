@@ -11,7 +11,6 @@ import {
 } from "./auth-device-keys";
 import { api } from "@/lib/api";
 import { postNativeAuthJson } from "@/lib/native-auth-http";
-import { resolveApiBaseUrl } from "@/lib/runtime-config";
 import { isNativePlatform } from "@/lib/native-platform";
 import { getNativeRefreshToken } from "@/lib/native-storage";
 import {

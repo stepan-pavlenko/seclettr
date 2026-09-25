@@ -11,7 +11,7 @@ RELEASE_ENV_FILE="$BUNDLE_DIR/release.env"
 IMAGE_ARCHIVE="$BUNDLE_DIR/prebuilt-images.tar.gz"
 RUNTIME_CONFIG_FILE="$BUNDLE_DIR/nginx/runtime-config.js"
 PROJECT_NAME="seclettr"
-GITHUB_REPO="pavlenkosa/seclettr"
+GITHUB_REPO="stepan-pavlenko/seclettr"
 SKIP_LOAD=false
 SKIP_MIGRATE=false
 SKIP_BACKUP=false
@@ -886,9 +886,9 @@ runtime_image_for_service() {
     minio) printf '%s' "minio/minio:latest" ;;
     minio-init) printf '%s' "minio/mc:latest" ;;
     coturn) printf '%s' "coturn/coturn:latest" ;;
-    api|migrate) printf '%s:%s' "${SECLETTR_API_IMAGE:-ghcr.io/pavlenkosa/seclettr/api}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
-    sfu) printf '%s:%s' "${SECLETTR_SFU_IMAGE:-ghcr.io/pavlenkosa/seclettr/sfu}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
-    web) printf '%s:%s' "${SECLETTR_WEB_IMAGE:-ghcr.io/pavlenkosa/seclettr/web}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
+    api|migrate) printf '%s:%s' "${SECLETTR_API_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/api}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
+    sfu) printf '%s:%s' "${SECLETTR_SFU_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/sfu}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
+    web) printf '%s:%s' "${SECLETTR_WEB_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/web}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
     *) return 1 ;;
   esac
 }

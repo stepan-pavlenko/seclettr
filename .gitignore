@@ -18,6 +18,7 @@ artifacts/
 infra/.env
 infra/.env.dev
 infra/.env.test
+infra/.env.sandbox
 
 # Logs, docs and other non-source artifacts
 docs/

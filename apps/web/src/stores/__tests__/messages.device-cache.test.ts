@@ -137,6 +137,8 @@ describe("useMessagesStore recipient device cache", () => {
       value: {
         setTimeout,
         clearTimeout,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
       },
       configurable: true,
       writable: true,

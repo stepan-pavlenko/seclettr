@@ -3,18 +3,18 @@
 # Downloads the latest release from GitHub, verifies integrity, and runs install.sh.
 #
 # Usage (run as root or with sudo):
-#   curl -fsSL https://raw.githubusercontent.com/pavlenkosa/seclettr/main/scripts/install-bootstrap.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/scripts/ops/install-bootstrap.sh | sudo bash
 #
 # Non-interactive (all defaults):
 #   curl -fsSL .../install-bootstrap.sh | sudo bash -s -- --non-interactive
 #
 # Or download the script first and run it:
-#   curl -fLO https://raw.githubusercontent.com/pavlenkosa/seclettr/main/scripts/install-bootstrap.sh
+#   curl -fLO https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/scripts/ops/install-bootstrap.sh
 #   chmod +x install-bootstrap.sh
 #   sudo ./install-bootstrap.sh
 set -euo pipefail
 
-GITHUB_REPO="pavlenkosa/seclettr"
+GITHUB_REPO="stepan-pavlenko/seclettr"
 GITHUB_API="https://api.github.com"
 INSTALL_DIR="${SECLETTR_INSTALL_DIR:-/opt/seclettr}"
 

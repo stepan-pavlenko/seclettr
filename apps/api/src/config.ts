@@ -11,8 +11,12 @@ import { z } from "zod";
 // When running via `tsx watch` through turbo/pnpm, shell env vars are NOT
 // forwarded to child processes. This block reads infra/.env synchronously
 // BEFORE Zod validation so DATABASE_URL etc. are available at parse time.
-// In production DATABASE_URL is always set; the file read is skipped entirely.
-if (!process.env["DATABASE_URL"]) {
+// It is strictly disabled in production: production must inject env vars
+// directly, never from a bundled file.
+if (
+  process.env["NODE_ENV"] !== "production" &&
+  !process.env["DATABASE_URL"]
+) {
   const infraDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../infra");
   const fallbackEnvFiles = [".env.dev", ".env.sandbox", ".env"];
 

@@ -20,7 +20,7 @@
     "@seclettr/protocol": "workspace:*",
     "fastify": "^4.29.1",
     "mediasoup": "^3.13.18",
-    "nanoid": "^5.0.7",
+    "nanoid": "^5.1.16",
     "zod": "^3.22.4"
   },
   "devDependencies": {

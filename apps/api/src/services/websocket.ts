@@ -3,6 +3,7 @@ import type { RawData } from "ws";
 import { nanoid } from "nanoid";
 import {
   safeParseWsClientMessage,
+  type WsClientMessage,
   type WsServerMessage,
 } from "@seclettr/protocol";
 import {
@@ -45,7 +46,6 @@ import {
 } from "./ws-runtime.js";
 import {
   createRoomLifecycleManager,
-  type RoomLifecycleManager,
 } from "./ws-room-lifecycle.js";
 import {
   recordWebSocketConnected,
@@ -213,14 +213,16 @@ export async function registerWebSocketHandler(
   });
 
   const groupCallSignalDeps: GroupCallSignalDeps = {
-    getActiveRoomSession: roomLifecycle.getActiveRoomSession,
+    getActiveRoomSession: (roomId) => roomLifecycle.getActiveRoomSession(roomId),
     hasDeviceScopedGroupCallParticipants,
     hasGroupCallParticipantDevice,
     hasGroupCallParticipantUser,
     isAllowedGroupMemberDevice,
-    routeToDevice: rt.routeToDevice,
-    publishGroupProducerStateEvent: roomLifecycle.publishGroupProducerStateEvent,
-    publishGroupMediaModeEvent: roomLifecycle.publishGroupMediaModeEvent,
+    routeToDevice: (deviceId, message) => rt.routeToDevice(deviceId, message),
+    publishGroupProducerStateEvent: (...args) =>
+      roomLifecycle.publishGroupProducerStateEvent(...args),
+    publishGroupMediaModeEvent: (...args) =>
+      roomLifecycle.publishGroupMediaModeEvent(...args),
     sendWsMessage: send,
   };
 
@@ -301,7 +303,7 @@ export async function registerWebSocketHandler(
         }
         return;
       }
-      const msg: import("@seclettr/protocol").WsClientMessage = result.data;
+      const msg: WsClientMessage = result.data;
 
       if (!rt.wsRateLimiter.consume(socketId, msg.type)) {
         const callId = "callId" in msg ? msg.callId : undefined;
@@ -366,7 +368,7 @@ export async function registerWebSocketHandler(
               rt.directCallSignalRouter.handleSignal(
                 fastify,
                 client,
-                msg as import("@seclettr/protocol").WsClientMessage & { callId: string }
+                msg as WsClientMessage & { callId: string }
               ),
             { callId: msg.callId, type: msg.type },
             "Failed to route call signal"

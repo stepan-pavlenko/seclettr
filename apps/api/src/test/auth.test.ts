@@ -3855,6 +3855,12 @@ describe("Group call lifecycle events", () => {
     const callId = (ownerCreate.body as { callId: string }).callId;
     expect((memberCreate.body as { callId: string }).callId).toBe(callId);
 
+    // The advisory lock makes the winner of the race the call host; only the
+    // host may end a group call, so pick the token that matches callerUserId.
+    const hostUserId = (ownerCreate.body as { callerUserId: string }).callerUserId;
+    expect((memberCreate.body as { callerUserId: string }).callerUserId).toBe(hostUserId);
+    const hostToken = hostUserId === ownerUserId ? ownerToken : memberToken;
+
     const roster = await apiRequest(
       `/calls/${callId}/participants`,
       {},
@@ -3877,7 +3883,7 @@ describe("Group call lifecycle events", () => {
         method: "PUT",
         body: JSON.stringify({ status: "ended" }),
       },
-      ownerToken
+      hostToken
     );
     expect(end.status).toBe(200);
 

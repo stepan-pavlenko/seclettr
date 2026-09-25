@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyWebsocket from "@fastify/websocket";
 import fastifyJwt from "@fastify/jwt";
-import * as mediasoup from "mediasoup";
+import type * as mediasoup from "mediasoup";
 import { nanoid } from "nanoid";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyInstance } from "fastify";
@@ -19,12 +19,10 @@ import {
   SfuCreateTransportResponseSchema,
   SfuProduceRequestSchema,
   SfuProduceResponseSchema,
-  SfuRoomAccessResponseSchema,
   SfuRoomProducersResponseSchema,
   SfuRtpCapabilitiesResponseSchema,
   SfuResumeConsumerRequestSchema,
   SfuResumeConsumerResponseSchema,
-  safeParseVersionedWire,
 } from "@seclettr/protocol";
 import { normalizeSfuRtpParameters } from "./rtp-parameters.js";
 import { parseVersionedOrReply } from "./validation.js";
@@ -51,7 +49,6 @@ import {
   type RoomRecord,
 } from "./room-state.js";
 
-type Worker = mediasoup.types.Worker;
 type Router = mediasoup.types.Router;
 type WebRtcTransport = mediasoup.types.WebRtcTransport;
 type Producer = mediasoup.types.Producer;

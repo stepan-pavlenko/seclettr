@@ -39,11 +39,11 @@ export async function requireSfuAuth(
   try {
     await request.jwtVerify();
     request.auth = request.user as SfuAuthPayload;
-    if (request.auth.tokenUse !== "access") {
-      await reply.code(401).send({ error: "Unauthorized" });
+    if (request.auth.tokenUse !== "access" && request.auth.tokenUse !== "guest") {
+      return reply.code(401).send({ error: "Unauthorized" });
     }
   } catch {
-    await reply.code(401).send({ error: "Unauthorized" });
+    return reply.code(401).send({ error: "Unauthorized" });
   }
 }
 

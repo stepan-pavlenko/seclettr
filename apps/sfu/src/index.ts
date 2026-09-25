@@ -1,9 +1,10 @@
-import * as mediasoup from "mediasoup";
+import type * as mediasoup from "mediasoup";
 import os from "node:os";
 import { config } from "./config.js";
 import { createWorkerPool } from "./sfu-worker-pool.js";
 import { createRoomAccessChecker } from "./sfu-room-access.js";
 import { createSfuServer, type SfuServerConfig } from "./sfu-server.js";
+import type { RoomRecord } from "./room-state.js";
 
 type Worker = mediasoup.types.Worker;
 type Router = mediasoup.types.Router;
@@ -11,7 +12,7 @@ type WebRtcTransport = mediasoup.types.WebRtcTransport;
 type Producer = mediasoup.types.Producer;
 type Consumer = mediasoup.types.Consumer;
 
-type Room = import("./room-state.js").RoomRecord<Router, WebRtcTransport, Producer, Consumer>;
+type Room = RoomRecord<Router, WebRtcTransport, Producer, Consumer>;
 
 async function main(): Promise<void> {
   const rooms = new Map<string, Room>();
@@ -21,7 +22,7 @@ async function main(): Promise<void> {
       rtcMinPort: config.MIN_PORT,
       rtcMaxPort: config.MAX_PORT,
     },
-    (deadWorker) => {
+    (_deadWorker: Worker) => {
       // Evict rooms whose router is now closed (owned by the dead worker).
       for (const [roomId, room] of rooms) {
         if (room.router.closed) {

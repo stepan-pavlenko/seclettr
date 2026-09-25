@@ -5,16 +5,16 @@
 <h1 align="center">Seclettr</h1>
 
 <p align="center">
-  <a href="https://github.com/pavlenkosa/seclettr/actions/workflows/ci.yml">
-    <img src="https://github.com/pavlenkosa/seclettr/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+  <a href="https://github.com/stepan-pavlenko/seclettr/actions/workflows/ci.yml">
+    <img src="https://github.com/stepan-pavlenko/seclettr/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <a href="https://github.com/pavlenkosa/seclettr/actions/workflows/release-bundle.yml">
-    <img src="https://github.com/pavlenkosa/seclettr/actions/workflows/release-bundle.yml/badge.svg?branch=main" alt="Release Bundle" />
+  <a href="https://github.com/stepan-pavlenko/seclettr/actions/workflows/release-bundle.yml">
+    <img src="https://github.com/stepan-pavlenko/seclettr/actions/workflows/release-bundle.yml/badge.svg?branch=main" alt="Release Bundle" />
   </a>
   <img src="https://img.shields.io/badge/version-1.3.1--beta-2563eb" alt="Version 1.3.1-beta" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-0f766e" alt="License Apache-2.0" />
   <img src="https://img.shields.io/badge/node-%3E%3D22-1f2937" alt="Node >= 22" />
-  <img src="https://img.shields.io/badge/pnpm-%3E%3D8-f59e0b" alt="pnpm >= 8" />
+  <img src="https://img.shields.io/badge/pnpm-%3E%3D11-f59e0b" alt="pnpm >= 11" />
   <img src="https://img.shields.io/badge/React-Vite-0f172a" alt="React + Vite" />
   <img src="https://img.shields.io/badge/Fastify-WebSocket-111827" alt="Fastify + WebSocket" />
   <img src="https://img.shields.io/badge/mediasoup-SFU-1d4ed8" alt="mediasoup SFU" />
@@ -197,8 +197,8 @@ curl -fsSL https://get.docker.com | sh
 mkdir -p /opt/seclettr && cd /opt/seclettr
 
 # 3. Download docker-compose.yml and .env.example
-curl -fLO https://raw.githubusercontent.com/pavlenkosa/seclettr/main/infra/docker-compose.release.yml
-curl -fLO https://raw.githubusercontent.com/pavlenkosa/seclettr/main/infra/.env.example
+curl -fLO https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/infra/docker-compose.release.yml
+curl -fLO https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/infra/.env.example
 
 mv docker-compose.release.yml docker-compose.yml
 mv .env.example .env
@@ -214,7 +214,7 @@ docker compose up -d
 
 ### Offline Mode (Air-gapped servers)
 
-Download a release bundle with prebuilt images from the [Releases page](https://github.com/pavlenkosa/seclettr/releases).
+Download a release bundle with prebuilt images from the [Releases page](https://github.com/stepan-pavlenko/seclettr/releases).
 
 ## Monorepo Layout
 
@@ -225,7 +225,6 @@ Download a release bundle with prebuilt images from the [Releases page](https://
 | `apps/sfu` | mediasoup-based SFU |
 | `packages/protocol` | Shared Zod contracts and TS types |
 | `packages/crypto` | Crypto and protocol helpers |
-| `packages/utils` | Shared utilities |
 | `infra` | Compose files, nginx, migrations, env templates |
 | `tests/e2e` | Playwright smoke coverage |
 
@@ -296,7 +295,7 @@ For first-time operators, use [DEPLOYMENT.md](DEPLOYMENT.md).
 ### Requirements
 
 - Node.js `>= 22`
-- pnpm `>= 8`
+- pnpm `>= 11`
 - Docker + Docker Compose plugin
 
 ### Core Commands
@@ -346,7 +345,9 @@ The repo also has a GitHub-driven snapshot flow that can publish downloadable re
 Relevant workflows:
 
 - `.github/workflows/ci.yml`
+- `.github/workflows/dev-ci.yml`
 - `.github/workflows/release-bundle.yml`
+- `.github/workflows/dev-bundle.yml`
 
 ## Push Notifications on Android — OEM Battery Restrictions
 

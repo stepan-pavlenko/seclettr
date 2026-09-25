@@ -36,7 +36,6 @@ import {
 } from "../../services/group-call-presence.js";
 import {
   hasActiveGroupMembership,
-  loadGroupMemberDeviceIds,
   loadUserDeviceIds,
   publishGroupCallFanOut as publishGroupCallEvent,
   endGroupCallIfRosterEmpty,
@@ -64,9 +63,6 @@ type ActiveCallSession = {
   status: "ringing" | "active" | "ended" | "missed" | "rejected";
   is_room: boolean;
 };
-
-type GroupMemberRole = "owner" | "admin" | "member";
-type GroupMembership = { group_id: string; role: GroupMemberRole };
 
 type GroupCallParticipant = {
   userId: string;

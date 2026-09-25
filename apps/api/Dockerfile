@@ -29,7 +29,7 @@ LABEL org.opencontainers.image.title="Seclettr API"
 LABEL org.opencontainers.image.version="${SECLETTR_VERSION}"
 LABEL org.opencontainers.image.revision="${GIT_REVISION}"
 LABEL org.opencontainers.image.created="${BUILD_TIMESTAMP}"
-LABEL org.opencontainers.image.source="https://github.com/pavlenkosa/seclettr"
+LABEL org.opencontainers.image.source="https://github.com/stepan-pavlenko/seclettr"
 WORKDIR /app
 
 COPY --from=build /app /app

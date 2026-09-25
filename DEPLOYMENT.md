@@ -12,7 +12,7 @@ file, nginx configs, migrations, and installer script.
 
 | Mode | Image source | Bundle size |
 |------|-------------|-------------|
-| **Online** (recommended) | Pulled from `ghcr.io/pavlenkosa/seclettr/*` at install time | ~10 MB (configs only) |
+| **Online** (recommended) | Pulled from `ghcr.io/stepan-pavlenko/seclettr/*` at install time | ~10 MB (configs only) |
 | **Offline** | Loaded from `prebuilt-images.tar.gz` inside the bundle | ~1 GB |
 
 The installer detects which mode to use automatically: if the image archive is present in
@@ -36,7 +36,7 @@ curl -fsSL https://get.docker.com | sh
 
 ### 2. Download the Release Bundle
 
-Go to the [GitHub Releases](https://github.com/pavlenkosa/seclettr/releases) page and
+Go to the [GitHub Releases](https://github.com/stepan-pavlenko/seclettr/releases) page and
 download the latest assets:
 
 ```
@@ -46,8 +46,8 @@ seclettr-release-main-<timestamp>.tar.gz.sha256
 
 Or with curl:
 ```bash
-# Replace <tag> with the release tag, e.g. v1.3.0-beta
-RELEASE_URL="https://github.com/pavlenkosa/seclettr/releases/download/<tag>"
+# Replace <tag> with the release tag, e.g. v1.3.1-beta
+RELEASE_URL="https://github.com/stepan-pavlenko/seclettr/releases/download/<tag>"
 curl -fLO "$RELEASE_URL/seclettr-release-main-<timestamp>.tar.gz"
 curl -fLO "$RELEASE_URL/seclettr-release-main-<timestamp>.tar.gz.sha256"
 ```

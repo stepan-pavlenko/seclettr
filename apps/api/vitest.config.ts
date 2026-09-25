@@ -5,12 +5,26 @@ const integrationTestFiles = [
   "src/test/attachment-access.test.ts",
   "src/test/group-history-contract.test.ts",
   "src/test/direct-call-signing-sync.test.ts",
-  "src/test/group-call-sfu-bootstrap.test.ts",
 ];
+
+// Requires an external SFU instance; only run when explicitly requested.
+const externalIntegrationTestFiles = ["src/test/group-call-sfu-bootstrap.test.ts"];
+
+const argvIncludes = (file: string) =>
+  process.argv.some((arg) => arg.includes(file));
 
 const includeIntegrationTests =
   process.env["QM_API_INCLUDE_INTEGRATION_TESTS"] === "1" ||
-  process.argv.some((arg) => integrationTestFiles.some((file) => arg.includes(file)));
+  integrationTestFiles.some(argvIncludes) ||
+  externalIntegrationTestFiles.some(argvIncludes);
+
+const includeExternalTests = externalIntegrationTestFiles.some(argvIncludes);
+
+const excludedTestFiles = includeIntegrationTests
+  ? includeExternalTests
+    ? []
+    : externalIntegrationTestFiles
+  : [...integrationTestFiles, ...externalIntegrationTestFiles];
 
 const sharedTestEnv = {
   QM_API_TEST_USE_IN_MEMORY_SERVICES: "1",
@@ -28,7 +42,7 @@ export default defineConfig({
           DATABASE_URL: "postgres://test:test@localhost/test",
         },
     include: ["src/test/**/*.test.ts"],
-    exclude: includeIntegrationTests ? [] : integrationTestFiles,
+    exclude: excludedTestFiles,
     testTimeout: 30_000,
     hookTimeout: 30_000,
     globalSetup: includeIntegrationTests ? ["src/test/global-setup.ts"] : [],
