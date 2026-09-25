@@ -224,7 +224,8 @@ export async function roomRoutes(fastify: FastifyInstance): Promise<void> {
         callId: invite.call_session_id,
         callType: invite.call_type,
         guestToken,
-        sfuUrl: config.SFU_URL,
+        guestSessionId,
+        sfuUrl: config.SFU_PUBLIC_URL,
         expiresAt: invite.expires_at.toISOString(),
       });
     }
@@ -373,6 +374,14 @@ export async function roomRoutes(fastify: FastifyInstance): Promise<void> {
 
       if (tokenUse === "guest") {
         if (roomId !== callId) {
+          return reply.code(403).send({ error: "Forbidden" });
+        }
+        // Kicked guests have their session row removed; deny re-entry.
+        const guestSession = await query<{ id: string }>(
+          `SELECT id FROM room_guest_sessions WHERE id = $1 AND call_session_id = $2`,
+          [userId, callId]
+        );
+        if (guestSession.length === 0) {
           return reply.code(403).send({ error: "Forbidden" });
         }
         return { ok: true };

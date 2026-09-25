@@ -12,11 +12,20 @@ file, nginx configs, migrations, and installer script.
 
 | Mode | Image source | Bundle size |
 |------|-------------|-------------|
-| **Online** (recommended) | Pulled from `ghcr.io/stepan-pavlenko/seclettr/*` at install time | ~10 MB (configs only) |
-| **Offline** | Loaded from `prebuilt-images.tar.gz` inside the bundle | ~1 GB |
+| **One-line install** (recommended) | Latest release bundle from GitHub Releases (prebuilt images) | ~1 GB |
+| **Offline / air-gapped** | Same bundle, copied manually | ~1 GB |
+| **Pure online** (advanced) | Pulled from `ghcr.io/stepan-pavlenko/seclettr/*` at install time | ~10 MB (configs only) |
 
-The installer detects which mode to use automatically: if the image archive is present in
-the bundle it loads from it; otherwise it pulls from GHCR.
+For the pure-online path the GHCR packages must be public (or you must run
+`docker login ghcr.io` first). The release bundle is offline-first: it always
+contains `prebuilt-images.tar.gz`, and the installer loads from it when present.
+The one-line bootstrap installs from the bundle, so no registry access is needed.
+
+```bash
+# Recommended: one-line install (installs Docker, downloads bundle, verifies
+# checksum, generates secrets + self-signed cert, runs migrations, starts stack)
+curl -fsSL https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/scripts/ops/install-bootstrap.sh | sudo bash
+```
 
 ---
 

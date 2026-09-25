@@ -22,7 +22,10 @@ export const RoomJoinResponseSchema = versionedWireObject(ROOMS_PROTOCOL_VERSION
   callId: z.string().uuid(),
   callType: z.enum(["audio", "video"]),
   guestToken: z.string(),
-  sfuUrl: z.string(),
+  guestSessionId: z.string().uuid(),
+  /** Public SFU URL for the guest browser. Omitted when the client should
+   *  use its own runtime-resolved SFU endpoint (e.g. same-origin /sfu). */
+  sfuUrl: z.string().optional(),
   expiresAt: z.string().datetime(),
 });
 

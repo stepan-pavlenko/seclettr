@@ -133,6 +133,9 @@ export async function buildApp() {
     global: true,
     max: 200,
     timeWindow: "1 minute",
+    // Do not take the API down when Redis is unavailable: fail open like the
+    // per-route fixed-window limiter instead of returning 500 for every request.
+    skipOnError: true,
     ...(usingInMemoryRedis ? {} : { redis }),
     keyGenerator: (request) =>
       `${request.ip}:${request.routeOptions?.url ?? ""}`,

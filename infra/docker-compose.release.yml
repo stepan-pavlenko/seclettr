@@ -40,7 +40,10 @@ x-api-env: &api-env
   MAX_ATTACHMENT_BYTES: ${MAX_ATTACHMENT_BYTES:-104857600}
   TURN_SECRET: ${TURN_SECRET:?TURN_SECRET must be set}
   TURN_DOMAIN: ${TURN_DOMAIN:?TURN_DOMAIN must be set}
-  SFU_URL: http://sfu:3002
+  # SFU uses host networking, so the API reaches it via the host gateway.
+  SFU_URL: ${SFU_URL:-http://host.docker.internal:3002}
+  # Browser-facing SFU URL for public room guests (defaults to same-origin /sfu).
+  SFU_PUBLIC_URL: ${SFU_PUBLIC_URL:-}
   DELIVERED_MESSAGE_RETENTION_DAYS: ${DELIVERED_MESSAGE_RETENTION_DAYS:-30}
   UNDELIVERED_MESSAGE_RETENTION_DAYS: ${UNDELIVERED_MESSAGE_RETENTION_DAYS:-90}
   GROUP_MESSAGE_RETENTION_DAYS: ${GROUP_MESSAGE_RETENTION_DAYS:-30}
@@ -160,6 +163,8 @@ services:
   api:
     image: ${SECLETTR_API_IMAGE:-seclettr/api}:${SECLETTR_IMAGE_TAG:-release}
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

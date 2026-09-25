@@ -224,13 +224,21 @@ wait_for_http() {
 hash_file() {
   local file_path="$1"
 
+  # Write the checksum with a basename (not an absolute build-host path) so
+  # `sha256sum -c <archive>.sha256` works on the operator's machine after the
+  # bundle is downloaded to a different directory.
+  local dir
+  local base
+  dir="$(cd -- "$(dirname -- "$file_path")" && pwd)"
+  base="$(basename -- "$file_path")"
+
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$file_path" >"${file_path}.sha256"
+    (cd "$dir" && sha256sum "$base") >"${file_path}.sha256"
     return
   fi
 
   if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$file_path" >"${file_path}.sha256"
+    (cd "$dir" && shasum -a 256 "$base") >"${file_path}.sha256"
   fi
 }
 

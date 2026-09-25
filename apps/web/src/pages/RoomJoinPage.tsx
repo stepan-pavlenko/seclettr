@@ -51,25 +51,17 @@ export function RoomJoinPage() {
       const session: RoomCallSession = {
         callId: joinRes.callId,
         callType: joinRes.callType,
-        participantId: joinRes.guestToken,
-        deviceId: joinRes.guestToken,
+        participantId: joinRes.guestSessionId,
+        deviceId: joinRes.guestSessionId,
         displayName: name,
         isGuest: true,
         isHost: false,
         guestToken: joinRes.guestToken,
-        sfuBaseUrl: joinRes.sfuUrl,
+        // Fall back to the client's runtime-resolved /sfu when the server does
+        // not expose a browser-reachable public SFU URL (the default).
+        sfuBaseUrl: joinRes.sfuUrl ?? null,
         inviteUrl: null,
       };
-
-      // Decode guestSessionId from JWT payload (sub claim) — needed as participantId.
-      try {
-        const payloadBase64 = joinRes.guestToken.split(".")[1] ?? "";
-        const payload = JSON.parse(atob(payloadBase64)) as { sub?: string; deviceId?: string };
-        session.participantId = payload.sub ?? joinRes.guestToken;
-        session.deviceId = payload.deviceId ?? joinRes.guestToken;
-      } catch {
-        // Keep guestToken as fallback participantId — the SFU will accept it.
-      }
 
       setState({ phase: "in-call", session });
     } catch (err) {

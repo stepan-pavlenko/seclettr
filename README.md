@@ -185,36 +185,58 @@ If you need the deployment path, legal framing, or a more operator-oriented setu
 
 ## Quick Start
 
-### Online Mode (Recommended — Fast)
+### One-Line Install (Recommended)
 
-Images are pulled from GitHub Container Registry. You don't need to build from source or download large bundles.
+Run this on a fresh server (Ubuntu/Debian, Fedora, RHEL, Alpine). It installs
+Docker if needed, downloads the latest release bundle, verifies its SHA-256,
+generates secrets and a self-signed TLS certificate, runs migrations, and
+starts the full stack.
 
 ```bash
-# 1. Install Docker (if missing)
-curl -fsSL https://get.docker.com | sh
+curl -fsSL https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/scripts/ops/install-bootstrap.sh | sudo bash
+```
 
-# 2. Get the deployment files
-mkdir -p /opt/seclettr && cd /opt/seclettr
+Non-interactive (accept all defaults):
 
-# 3. Download docker-compose.yml and .env.example
-curl -fLO https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/infra/docker-compose.release.yml
-curl -fLO https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/infra/.env.example
+```bash
+curl -fsSL https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/scripts/ops/install-bootstrap.sh | sudo bash -s -- --non-interactive
+```
 
-mv docker-compose.release.yml docker-compose.yml
-mv .env.example .env
+After it finishes, open `https://<your-server-ip>/` and accept the
+self-signed certificate warning. For a trusted certificate, pass a domain
+during the interactive wizard (Let's Encrypt) or place `cert.pem` and `key.pem`
+in the bundle's `nginx/certs/` before running.
 
-# 4. Edit .env — set your domain or IP:
-#   - CORS_ORIGIN: e.g., https://chat.example.com or http://192.168.1.100
-#   - TURN_DOMAIN: your domain or IP
-#   - TURN_EXTERNAL_IP and ANNOUNCED_IP: your public IP
+Requires a published release bundle — see [Release and Distribution](#release-and-distribution).
 
-# 5. Start everything
+### Manual Docker Compose (advanced)
+
+If you prefer to run Compose directly, use the full release bundle (it contains
+`docker-compose.yml`, `nginx/`, `migrations/`, and an installer). The bare
+`infra/docker-compose.release.yml` file alone is **not** sufficient: it bind-mounts
+`nginx/`, `nginx/certs/`, `nginx/security-headers.conf`, `nginx/runtime-config.js`,
+and `migrations/`, and it does not run migrations automatically.
+
+```bash
+# From an unpacked release bundle directory:
+cp .env.example .env
+# Edit .env: set CORS_ORIGIN, TURN_DOMAIN, TURN_EXTERNAL_IP, ANNOUNCED_IP,
+# and replace every CHANGE_ME_* secret.
+docker compose --profile ops run --rm migrate   # apply database schema
 docker compose up -d
 ```
 
-### Offline Mode (Air-gapped servers)
+### Offline / Air-gapped Servers
 
-Download a release bundle with prebuilt images from the [Releases page](https://github.com/stepan-pavlenko/seclettr/releases).
+Download a release bundle from the
+[Releases page](https://github.com/stepan-pavlenko/seclettr/releases), copy it to
+the server, then:
+
+```bash
+tar -xzf seclettr-release-*.tar.gz
+cd seclettr-release-*
+sudo ./install.sh --interactive
+```
 
 ## Monorepo Layout
 

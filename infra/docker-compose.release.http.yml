@@ -2,3 +2,5 @@ services:
   web:
     ports:
       - "0.0.0.0:${WEB_HTTP_PORT:-80}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/runtime-config.js | grep -q '__SECLETTR_RUNTIME_CONFIG__'"]

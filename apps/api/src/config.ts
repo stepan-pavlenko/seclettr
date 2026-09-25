@@ -74,6 +74,16 @@ const ConfigSchema = z.object({
   TURN_PORT: z.coerce.number().int().min(1).max(65535).default(3478),
   TURNS_PORT: z.coerce.number().int().min(1).max(65535).default(5349),
   SFU_URL: z.string().default("http://localhost:3002"),
+  /**
+   * Browser-reachable SFU URL handed to public room guests. Leave unset when
+   * the web client should use its own runtime-resolved `/sfu` endpoint
+   * (the default same-origin nginx/proxy setup). Must NOT be the internal
+   * Docker hostname such as http://sfu:3002.
+   */
+  SFU_PUBLIC_URL: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().url().optional()
+  ),
   APP_URL: z.string().default("http://localhost:5173"),
   COOKIE_SECURE: EnvBooleanSchema.default(true),
   MAX_ATTACHMENT_BYTES: z.coerce.number().int().default(100 * 1024 * 1024),

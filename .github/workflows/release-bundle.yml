@@ -167,15 +167,17 @@ jobs:
       - name: Build release bundle
         shell: bash
         run: |
+          COMMON_ARGS=(
+            --name      "${{ steps.meta.outputs.bundle_prefix }}"
+            --tag       "${{ steps.meta.outputs.image_tag }}"
+            --api-image "${{ steps.meta.outputs.api_image }}"
+            --web-image "${{ steps.meta.outputs.web_image }}"
+            --sfu-image "${{ steps.meta.outputs.sfu_image }}"
+          )
           if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-            pnpm release:build -- \
-              --name "${{ steps.meta.outputs.bundle_prefix }}" \
-              --tag  "${{ steps.meta.outputs.image_tag }}" \
-              --skip-verify
+            pnpm release:build -- "${COMMON_ARGS[@]}" --skip-verify
           else
-            pnpm release:build -- \
-              --name "${{ steps.meta.outputs.bundle_prefix }}" \
-              --tag  "${{ steps.meta.outputs.image_tag }}"
+            pnpm release:build -- "${COMMON_ARGS[@]}"
           fi
 
       - name: Rebuild workspace packages before Android
@@ -189,17 +191,18 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: github.event_name == 'workflow_dispatch'
         with:
-          tag_name: v${{ steps.meta.outputs.app_version }}
-          name: v${{ steps.meta.outputs.app_version }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.meta.outputs.app_version) || format('snapshot-main-{0}', steps.meta.outputs.short_sha) }}
+          name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.meta.outputs.app_version) || format('Seclettr snapshot {0}', steps.meta.outputs.short_sha) }}
           body_path: /tmp/commit-body.txt
-          draft: true
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          prerelease: ${{ github.event_name != 'workflow_dispatch' }}
           files: |
             artifacts/*.tar.gz
             artifacts/*.sha256
             apps/web/android/app/build/outputs/apk/release/app-release.apk
             apps/web/android/app/build/outputs/bundle/release/app-release.aab
+          fail_on_unmatched_files: false
 
       - name: Upload artifact — bundle
         uses: actions/upload-artifact@v4

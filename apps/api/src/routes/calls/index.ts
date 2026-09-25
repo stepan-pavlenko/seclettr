@@ -938,6 +938,14 @@ export async function callRoutes(fastify: FastifyInstance): Promise<void> {
           if (roomId !== callId) {
             return reply.code(403).send({ error: "Forbidden" });
           }
+          // Kicked guests have their session row removed; deny re-entry.
+          const guestSession = await query<{ id: string }>(
+            `SELECT id FROM room_guest_sessions WHERE id = $1 AND call_session_id = $2`,
+            [userId, callId]
+          );
+          if (guestSession.length === 0) {
+            return reply.code(403).send({ error: "Forbidden" });
+          }
           return SfuRoomAccessResponseSchema.parse({ version: SFU_PROTOCOL_VERSION, ok: true });
         }
         if (call.caller_user_id !== userId) {
