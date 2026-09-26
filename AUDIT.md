@@ -230,6 +230,12 @@ Web
     raw; sanitizer exported and covered by `logger-sanitize.test.ts`.
 - Saved messages and part of the plain cache are plaintext/weakly encrypted at rest
   (`src/stores/saved/useSavedMessagesStore.ts:47`, `src/stores/plain/messages/plain-messages-cache.ts:30-46`).
+  - Deferred with rationale: the plain cache "encryption" derives its AES-GCM key from
+    `userId:deviceId`, neither of which is secret, so it is obfuscation rather than confidentiality
+    against a local attacker. Extending the same scheme to saved messages would add complexity and
+    the appearance of at-rest encryption without a real threat-model improvement (AGENTS.md §10).
+    A meaningful fix requires a passphrase/OS-keystore-backed key and an explicit migration of the
+    existing plaintext store; tracked as a design task rather than a mechanical change.
 - `String.fromCodePoint(...blob)` can throw `RangeError` for large caches
   (`plain-messages-cache.ts:84`).
   - Fix (done): encode in 8 KB chunks (matching the attachment base64 pattern).
@@ -239,6 +245,12 @@ API
   - Fix (done): count check + inserts now run inside a transaction that locks the group row
     (`SELECT ... FOR UPDATE`), preventing concurrent add-member calls from exceeding the cap.
 - Refresh-token rotation has no row lock / reuse detection (`routes/auth/index.ts:565-605`).
+  - Deferred with rationale: the client deduplicates refresh calls per tab
+    (`apps/web/src/lib/session.ts` `_refreshPromise`) but has no cross-tab coordination, so a naive
+    single-use + row-lock scheme would invalidate legitimate refreshes from other tabs/devices and
+    sign users out. A correct fix needs a short reuse grace window (accept the previous hash within
+    N seconds) plus a schema column to track it, and must be validated across multi-tab and
+    process-kill scenarios before shipping.
 - `/metrics` bearer comparison is not constant-time (`src/index.ts:214-222`).
   - Fix (done): constant-time comparison via `lib/constant-time.ts` (hashes both sides to a fixed
     length before `timingSafeEqual`).
