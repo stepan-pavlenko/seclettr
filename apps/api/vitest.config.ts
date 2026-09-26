@@ -6,6 +6,7 @@ const integrationTestFiles = [
   "src/test/group-history-contract.test.ts",
   "src/test/direct-call-signing-sync.test.ts",
   "src/test/guest-rooms.test.ts",
+  "src/test/malformed-param.test.ts",
 ];
 
 // Requires an external SFU instance; only run when explicitly requested.

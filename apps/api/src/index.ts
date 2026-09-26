@@ -174,6 +174,52 @@ export async function buildApp() {
     limits: { fileSize: config.MAX_ATTACHMENT_BYTES },
   });
 
+  // Error and not-found handlers MUST be set before any `register()` call.
+  // Fastify encapsulation copies the parent handler into a child context at
+  // registration time, so a handler installed afterwards does not cover routes
+  // in already-registered plugin scopes — errors then fall through to Fastify's
+  // default serializer, which echoes the raw error message (e.g. Postgres
+  // `22P02 ... invalid input syntax for type uuid`) even in production.
+  fastify.setNotFoundHandler(async (_, reply) => {
+    return reply.code(404).send({ error: "Not found" });
+  });
+
+  // Never leak stack traces in production.
+  fastify.setErrorHandler(async (error, request, reply) => {
+    const maybeZod = error as {
+      name?: string;
+      issues?: unknown;
+      errors?: unknown;
+      flatten?: () => unknown;
+    };
+    if (maybeZod?.name === "ZodError") {
+      return reply.code(400).send({
+        error: "Validation error",
+        details: typeof maybeZod.flatten === "function"
+          ? maybeZod.flatten()
+          : (maybeZod.issues ?? maybeZod.errors ?? []),
+      });
+    }
+    if (error.validation) {
+      return reply.code(400).send({ error: "Validation error", details: error.validation });
+    }
+    // Postgres `22P02` (invalid_text_representation) means a client-supplied
+    // value could not be cast, e.g. a non-UUID path param bound to a UUID
+    // column. That is malformed input, not a server fault, so answer 400 rather
+    // than 500 — and avoid echoing the raw driver message. This centralizes
+    // path-param validation instead of duplicating UUID schemas per route.
+    if ((error as { code?: string }).code === "22P02") {
+      return reply.code(400).send({ error: "Invalid request parameter" });
+    }
+    fastify.log.error({ err: error, url: stripQuery(request.url) }, "Unhandled error");
+    const statusCode = error.statusCode ?? 500;
+    return reply.code(statusCode).send({
+      error: config.NODE_ENV === "production"
+        ? "Internal server error"
+        : error.message,
+    });
+  });
+
   await fastify.register(authRoutes, { prefix: "/auth" });
   await fastify.register(deviceRoutes, { prefix: "/devices" });
   await fastify.register(userRoutes, { prefix: "/users" });
@@ -241,38 +287,6 @@ export async function buildApp() {
     }
     reply.type("text/plain; version=0.0.4; charset=utf-8");
     return renderPrometheusMetrics(health);
-  });
-
-  fastify.setNotFoundHandler(async (_, reply) => {
-    return reply.code(404).send({ error: "Not found" });
-  });
-
-  // Never leak stack traces in production.
-  fastify.setErrorHandler(async (error, request, reply) => {
-    const maybeZod = error as {
-      name?: string;
-      issues?: unknown;
-      errors?: unknown;
-      flatten?: () => unknown;
-    };
-    if (maybeZod?.name === "ZodError") {
-      return reply.code(400).send({
-        error: "Validation error",
-        details: typeof maybeZod.flatten === "function"
-          ? maybeZod.flatten()
-          : (maybeZod.issues ?? maybeZod.errors ?? []),
-      });
-    }
-    if (error.validation) {
-      return reply.code(400).send({ error: "Validation error", details: error.validation });
-    }
-    fastify.log.error({ err: error, url: stripQuery(request.url) }, "Unhandled error");
-    const statusCode = error.statusCode ?? 500;
-    return reply.code(statusCode).send({
-      error: config.NODE_ENV === "production"
-        ? "Internal server error"
-        : error.message,
-    });
   });
 
   return fastify;

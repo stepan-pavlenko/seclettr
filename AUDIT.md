@@ -238,6 +238,12 @@ API
   - Fix (done): constant-time comparison via `lib/constant-time.ts` (hashes both sides to a fixed
     length before `timingSafeEqual`).
 - Path params are generally not UUID-validated → 500 on malformed input.
+  - Fix (done): root cause was that `fastify.setErrorHandler`/`setNotFoundHandler` were installed
+    *after* route registration, so errors thrown in plugin scopes bypassed the custom handler and
+    were serialized by Fastify's default handler — leaking the raw driver message (e.g. Postgres
+    `22P02 invalid input syntax for type uuid`) with a 500. Handlers are now registered before any
+    `register()` call, and `22P02` (invalid text representation) maps to a generic 400. Covered by
+    `apps/api/src/test/malformed-param.test.ts`.
 
 Infra / CI / supply chain
 - `minio`, `mc`, `coturn` pinned to `:latest`.
