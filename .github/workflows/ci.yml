@@ -98,6 +98,9 @@ jobs:
       - name: Audit production dependencies
         run: pnpm audit:prod:gate
 
+      - name: Check documented install paths
+        run: pnpm check:doc-paths
+
       - name: Test
         run: pnpm test
 

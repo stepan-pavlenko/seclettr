@@ -25,6 +25,11 @@ Severity legend: **Critical** (blocks release/install or enables account comprom
 - Additionally `main:README.md` still references `github.com/pavlenkosa/seclettr`, but the
   actual remote is `stepan-pavlenko/seclettr`.
 - Fix: merge `dev/main` → `main` (or retarget docs), add a CI guard that README raw paths exist.
+  - Fix (partial, done): the documented URLs now match the repository layout (verified remotely:
+    `origin/main` has `scripts/ops/install-bootstrap.sh` and README/DEPLOYMENT reference
+    `stepan-pavlenko/seclettr`). A `check:doc-paths` guard runs in CI and fails if a documented
+    raw URL points at a missing file or a non-default branch. Deciding whether `main` is the
+    released branch remains an operational call.
 
 ### C2 — Release pipeline never runs for the active branch
 - `.github/workflows/release-bundle.yml:4-10` triggers on `workflow_run` for branch `main` only.
