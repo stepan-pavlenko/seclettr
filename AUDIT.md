@@ -293,6 +293,8 @@ Tests
 Docs
 - No `CHANGELOG`, `SECURITY`, `CODEOWNERS`, or `CONTRIBUTING`.
 - `DEPLOYMENT.md` omits the SFU RTP range `40000-49999`.
+  - Fix (done): `DEPLOYMENT.md` now documents the SFU media UDP range `40000-49999` alongside the
+    TURN ports.
 
 ---
 
