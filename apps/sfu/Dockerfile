@@ -16,9 +16,19 @@ COPY apps/sfu ./apps/sfu
 RUN pnpm install --frozen-lockfile --filter @seclettr/protocol... --filter @seclettr/sfu...
 RUN pnpm --filter @seclettr/protocol build
 RUN pnpm --filter @seclettr/sfu build
+# Drop sources and the dev-inclusive dependency tree; the runtime stage swaps in
+# a production-only node_modules so the image does not ship build tooling.
+RUN rm -rf apps/sfu/src packages/protocol/src node_modules
+
+# Production-only dependencies, including the compiled mediasoup worker. Reuses
+# the toolchain installed in `base` and keeps pnpm's exact path layout.
+FROM base AS proddeps
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/sfu/package.json ./apps/sfu/
+COPY packages/protocol/package.json ./packages/protocol/
+RUN pnpm install --frozen-lockfile --prod --filter @seclettr/protocol... --filter @seclettr/sfu...
 
 FROM node:22-alpine AS production
-RUN corepack enable && corepack prepare pnpm@11.4.0 --activate
 ARG SECLETTR_VERSION=0.0.0
 ARG GIT_REVISION=
 ARG BUILD_TIMESTAMP=
@@ -31,6 +41,7 @@ RUN apk add --no-cache libstdc++
 WORKDIR /app
 
 COPY --from=build /app /app
+COPY --from=proddeps /app/node_modules /app/node_modules
 
 WORKDIR /app/apps/sfu
 

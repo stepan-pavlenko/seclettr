@@ -250,6 +250,11 @@ Infra / CI / supply chain
     snapshot (`workflow_run`) build still passes `--skip-verify`; the manual,
     versioned release path runs the full gate.
 - Dockerfiles copy the whole build tree into runtime images.
+  - Fix (done): the API and SFU runtime stages now swap in a production-only `node_modules`
+    (`proddeps` stage) and drop sources; the API image shrank from 447 MB to 256 MB and the SFU
+    from ~600 MB to 218 MB. The `migrate` service runs the compiled `dist/db/migrate.js` instead
+    of `pnpm db:migrate` (tsx), so it no longer needs dev dependencies. Verified both slim images
+    serve `/health` and the compiled migrator runs against Postgres.
 - `scripts/release/install.sh:215-258` installs the CentOS Docker repo on Fedora/RHEL.
   - Fix (done): the RHEL-family branches now select the Fedora/RHEL/CentOS repo by distro ID.
 

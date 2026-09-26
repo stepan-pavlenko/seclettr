@@ -188,7 +188,7 @@ services:
     volumes:
       - ./migrations:/app/infra/migrations:ro
     working_dir: /app/apps/api
-    command: ["pnpm", "db:migrate"]
+    command: ["node", "dist/db/migrate.js"]
     logging: *default-logging
 
   api:
