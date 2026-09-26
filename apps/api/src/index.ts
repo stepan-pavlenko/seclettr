@@ -46,8 +46,19 @@ import { plainAttachmentRoutes } from "./routes/plain/attachments.js";
 import { plainPinRoutes } from "./routes/plain/pins.js";
 import { plainFolderRoutes } from "./routes/plain/folders.js";
 import { profileRoutes } from "./routes/profile/index.js";
+import { constantTimeEqualString } from "./lib/constant-time.js";
 
 const LEGACY_WS_CLIENT_PROTOCOL = "qm.v1";
+
+function isMetricsAuthorized(authorization: string | undefined): boolean {
+  if (!config.METRICS_BEARER_TOKEN) {
+    return false;
+  }
+  return constantTimeEqualString(
+    authorization,
+    `Bearer ${config.METRICS_BEARER_TOKEN}`
+  );
+}
 
 function selectWsClientProtocol(protocols: Set<string>): string | false {
   if (protocols.has(WS_CLIENT_PROTOCOL)) {
@@ -214,9 +225,7 @@ export async function buildApp() {
   fastify.get("/metrics", async (request, reply) => {
     if (
       config.NODE_ENV === "production" &&
-      (!config.METRICS_BEARER_TOKEN ||
-        request.headers.authorization !==
-          `Bearer ${config.METRICS_BEARER_TOKEN}`)
+      !isMetricsAuthorized(request.headers.authorization)
     ) {
       return reply.code(404).send({ error: "Not found" });
     }

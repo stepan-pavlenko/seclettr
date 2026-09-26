@@ -54,6 +54,12 @@ async function main(): Promise<void> {
     cleanupIntervalMs: config.CLEANUP_INTERVAL_MS,
     topology: config.TOPOLOGY,
     corsOrigin: process.env["CORS_ORIGIN"] ?? "http://localhost:5173",
+    maxRooms: config.MAX_ROOMS,
+    maxPeersPerRoom: config.MAX_PEERS_PER_ROOM,
+    maxTransportsPerPeer: config.MAX_TRANSPORTS_PER_PEER,
+    maxProducersPerPeer: config.MAX_PRODUCERS_PER_PEER,
+    maxConsumersPerPeer: config.MAX_CONSUMERS_PER_PEER,
+    rateLimitMaxBuckets: config.RATE_LIMIT_MAX_BUCKETS,
   };
 
   const server = await createSfuServer({

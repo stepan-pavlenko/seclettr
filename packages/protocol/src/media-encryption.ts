@@ -23,6 +23,14 @@ export type CallMediaStateReason = z.infer<typeof CallMediaStateReasonSchema>;
 
 const MAX_EPHEMERAL_KEY_B64_LENGTH = 64;
 
+/**
+ * A sealed media-key envelope contains a short versioned JSON payload
+ * (call/device ids, epoch, keyId, algorithm, base64url AES key) wrapped in a
+ * libsodium sealed box — a few hundred bytes, so base64url is under ~1 KiB.
+ * Bound it so a peer cannot inflate the signal (AUDIT.md H15).
+ */
+const MAX_ENCRYPTED_KEY_LENGTH = 4 * 1024;
+
 export const CallMediaEncryptionOfferSchema = z.object({
   preferredMode: CallMediaEncryptionModeSchema,
   supportedModes: z.array(CallMediaEncryptionModeSchema).min(1).max(2),
@@ -55,7 +63,7 @@ export const GroupCallMediaKeySignalBodySchema = z.object({
   epoch: z.number().int().min(1).max(1_000_000),
   keyId: z.string().min(1).max(128),
   algorithm: GroupCallMediaKeyAlgorithmSchema,
-  encryptedKey: z.string().min(1),
+  encryptedKey: z.string().min(1).max(MAX_ENCRYPTED_KEY_LENGTH),
 });
 export type GroupCallMediaKeySignalBody = z.infer<typeof GroupCallMediaKeySignalBodySchema>;
 

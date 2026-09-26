@@ -16,6 +16,15 @@ const ALLOW_VERBOSE_LOGS = IS_DEV || IS_DIAGNOSTIC_BUILD;
 const SENSITIVE_KEY_PATTERN =
   /token|secret|password|authorization|cookie|session|ciphertext|digest|signature|stack|private|proof/i;
 
+/**
+ * Maximum object/array nesting depth sanitized in production. Values beyond
+ * this depth are replaced with a placeholder rather than returned raw: the
+ * previous short-circuit (`depth > 2` → return `value`) leaked deeply nested
+ * sensitive values in production (AUDIT.md Medium).
+ */
+const MAX_SANITIZE_DEPTH = 2;
+const DEPTH_PLACEHOLDER = "[Truncated]";
+
 function redactText(value: string, maxLength = 200): string {
   return value
     .replaceAll(/\bBearer\s+[A-Z0-9._-]+\b/gi, "Bearer [REDACTED]")
@@ -63,8 +72,12 @@ function sanitizeObject(value: object, depth: number): Record<string, unknown> {
   return sanitized;
 }
 
-function sanitizeLogValue(value: unknown, depth = 0): unknown {
-  if (IS_DEV || depth > 2) return value;
+export function sanitizeLogValue(value: unknown, depth = 0): unknown {
+  if (depth > MAX_SANITIZE_DEPTH) {
+    // Do not return the raw value: a deeply nested object may still contain
+    // sensitive fields that would never reach SENSITIVE_KEY_PATTERN.
+    return DEPTH_PLACEHOLDER;
+  }
   if (value instanceof Error) return sanitizeError(value);
   if (typeof value === "string") return redactText(value);
   if (Array.isArray(value)) return sanitizeArray(value, depth);

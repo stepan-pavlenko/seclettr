@@ -906,8 +906,8 @@ runtime_image_for_service() {
   case "$1" in
     postgres) printf '%s' "postgres:16-alpine" ;;
     redis) printf '%s' "redis:7-alpine" ;;
-    minio) printf '%s' "minio/minio:latest" ;;
-    minio-init) printf '%s' "minio/mc:latest" ;;
+    minio) printf '%s' "${MINIO_IMAGE:-bitnamilegacy/minio:2025.7.23-debian-12-r5}" ;;
+    minio-init) printf '%s' "${MINIO_MC_IMAGE:-bitnamilegacy/minio-client:2025.7.21-debian-12-r3}" ;;
     coturn) printf '%s' "coturn/coturn:latest" ;;
     api|migrate) printf '%s:%s' "${SECLETTR_API_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/api}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
     sfu) printf '%s:%s' "${SECLETTR_SFU_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/sfu}" "${SECLETTR_IMAGE_TAG:-latest}" ;;

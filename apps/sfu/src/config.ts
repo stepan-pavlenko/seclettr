@@ -115,6 +115,13 @@ export const config = {
   PEER_TTL_MS: parseIntEnv("SFU_PEER_TTL_MS", 120_000),
   EMPTY_ROOM_TTL_MS: parseIntEnv("SFU_EMPTY_ROOM_TTL_MS", 30_000),
   CLEANUP_INTERVAL_MS: parseIntEnv("SFU_CLEANUP_INTERVAL_MS", 30_000),
+  /** Upper bounds to prevent resource exhaustion (AUDIT.md H13). */
+  MAX_ROOMS: parseIntEnv("SFU_MAX_ROOMS", 500),
+  MAX_PEERS_PER_ROOM: parseIntEnv("SFU_MAX_PEERS_PER_ROOM", 50),
+  MAX_TRANSPORTS_PER_PEER: parseIntEnv("SFU_MAX_TRANSPORTS_PER_PEER", 4),
+  MAX_PRODUCERS_PER_PEER: parseIntEnv("SFU_MAX_PRODUCERS_PER_PEER", 6),
+  MAX_CONSUMERS_PER_PEER: parseIntEnv("SFU_MAX_CONSUMERS_PER_PEER", 100),
+  RATE_LIMIT_MAX_BUCKETS: parseIntEnv("SFU_RATE_LIMIT_MAX_BUCKETS", 100_000),
   /** Single-node topology. Informational — use REPLICA_COUNT guard above to enforce. */
   TOPOLOGY: "single-node" as const,
 } as const;

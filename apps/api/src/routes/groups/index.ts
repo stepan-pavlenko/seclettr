@@ -427,47 +427,66 @@ export async function groupRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
-      const currentMemberCountRows = await query<{ member_count: string }>(
-        `SELECT COUNT(*)::int AS member_count
-         FROM group_members
-         WHERE group_id = $1 AND removed_at IS NULL`,
-        [groupId]
-      );
-      const currentMemberCount = Number.parseInt(
-        currentMemberCountRows[0]?.member_count ?? "0",
-        10
-      );
+      const addResult = await transaction(async (client) => {
+        // Lock the group row so concurrent add-member calls are serialized:
+        // the member-count check and the inserts must be atomic, otherwise two
+        // requests can each pass the limit check and together exceed
+        // GROUP_MAX_MEMBERS (AUDIT.md Medium).
+        await client.query("SELECT id FROM groups WHERE id = $1 FOR UPDATE", [
+          groupId,
+        ]);
 
-      const existingTargets = await query<{ user_id: string }>(
-        `SELECT user_id
-         FROM group_members
-         WHERE group_id = $1
-           AND user_id = ANY($2::uuid[])
-           AND removed_at IS NULL`,
-        [groupId, targetUserIds]
-      );
-      const newMemberCount = targetUserIds.length - existingTargets.length;
-      if (currentMemberCount + newMemberCount > 256) {
-        return reply.code(400).send({ error: "Group size limit is 256" });
-      }
-
-      const existingMemberSet = new Set(existingTargets.map((r) => r.user_id));
-      const trulyNewUserIds = targetUserIds.filter(
-        (id) => !existingMemberSet.has(id)
-      );
-
-      for (const newUserId of targetUserIds) {
-        await query(
-          `INSERT INTO group_members (group_id, user_id, role)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (group_id, user_id) DO UPDATE
-           SET removed_at = NULL,
-               joined_at = now(),
-               role = EXCLUDED.role
-           WHERE group_members.removed_at IS NOT NULL`,
-          [groupId, newUserId, targetRole]
+        const currentMemberCountRows = await client.query<{ member_count: number }>(
+          `SELECT COUNT(*)::int AS member_count
+           FROM group_members
+           WHERE group_id = $1 AND removed_at IS NULL`,
+          [groupId]
         );
+        const currentMemberCount = Number(
+          currentMemberCountRows.rows[0]?.member_count ?? 0
+        );
+
+        const existingTargets = await client.query<{ user_id: string }>(
+          `SELECT user_id
+           FROM group_members
+           WHERE group_id = $1
+             AND user_id = ANY($2::uuid[])
+             AND removed_at IS NULL`,
+          [groupId, targetUserIds]
+        );
+        const existingMemberSet = new Set(
+          existingTargets.rows.map((row) => row.user_id)
+        );
+        const trulyNewUserIds = targetUserIds.filter(
+          (id) => !existingMemberSet.has(id)
+        );
+
+        if (currentMemberCount + trulyNewUserIds.length > GROUP_MAX_MEMBERS) {
+          return { limitExceeded: true as const };
+        }
+
+        for (const newUserId of targetUserIds) {
+          await client.query(
+            `INSERT INTO group_members (group_id, user_id, role)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (group_id, user_id) DO UPDATE
+             SET removed_at = NULL,
+                 joined_at = now(),
+                 role = EXCLUDED.role
+             WHERE group_members.removed_at IS NOT NULL`,
+            [groupId, newUserId, targetRole]
+          );
+        }
+
+        return { limitExceeded: false as const, trulyNewUserIds };
+      });
+
+      if (addResult.limitExceeded) {
+        return reply
+          .code(400)
+          .send({ error: `Group size limit is ${GROUP_MAX_MEMBERS}` });
       }
+      const { trulyNewUserIds } = addResult;
 
       let cryptoEpoch: number | undefined;
       if (trulyNewUserIds.length > 0) {

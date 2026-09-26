@@ -737,6 +737,29 @@ describe("Sender Keys (group protocol)", () => {
     expect(str(d1.plaintext)).toBe("msg-1");
   });
 
+  it("does not corrupt caller-owned MKSKIPPED state when decrypting a cached key", async () => {
+    let senderState = await generateSenderKey();
+    const recvState = { ...senderState, signingPrivateKey: undefined };
+
+    const enc0 = await senderKeyEncrypt(senderState, distributionId, enc.encode("cached-0"));
+    senderState = enc0.newState;
+    const enc1 = await senderKeyEncrypt(senderState, distributionId, enc.encode("cached-1"));
+
+    // Receive msg-1 first so msg-0's key is cached in recvState.MKSKIPPED.
+    const d1 = await senderKeyDecrypt(recvState, enc1.message);
+    const skipKey = `${distributionId}:${enc0.message.messageId}`;
+    const cachedBefore = d1.newState.MKSKIPPED.get(skipKey);
+    expect(cachedBefore).toBeDefined();
+    const snapshot = Uint8Array.from(cachedBefore!);
+
+    // Decrypt msg-0 via the fast path. This must not mutate the caller's
+    // retained MKSKIPPED entry (AUDIT.md H14).
+    const d0 = await senderKeyDecrypt(d1.newState, enc0.message);
+    expect(str(d0.plaintext)).toBe("cached-0");
+    expect(Array.from(d1.newState.MKSKIPPED.get(skipKey)!)).toEqual(Array.from(snapshot));
+    expect(d1.newState.MKSKIPPED.get(skipKey)!.some((b) => b !== 0)).toBe(true);
+  });
+
   it("uses aeadVersion=1 for new messages and correctly uses empty AD for aeadVersion=0", async () => {
     const senderState = await generateSenderKey();
     const recvState = { ...senderState, signingPrivateKey: undefined };

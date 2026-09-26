@@ -31,6 +31,13 @@ export default async function globalSetup() {
   if (!process.env["QM_API_TEST_REFRESH_RATE_LIMIT_MAX"]) {
     process.env["QM_API_TEST_REFRESH_RATE_LIMIT_MAX"] = "500";
   }
+  // Integration tests register users over HTTP, so public registration must be
+  // enabled for the test server. Production defaults to disabled (see
+  // AUDIT.md H2); CI sets ALLOW_PUBLIC_REGISTRATION=true explicitly, and this
+  // fallback keeps local runs consistent with CI. An explicit value always wins.
+  if (!process.env["ALLOW_PUBLIC_REGISTRATION"]) {
+    process.env["ALLOW_PUBLIC_REGISTRATION"] = "true";
+  }
 
   await import("../db/migrate.js");
 

@@ -136,16 +136,20 @@ export async function senderKeyDecrypt(
   // Fast path: message arrived out-of-order but its key was cached earlier.
   const cachedMk = state.MKSKIPPED.get(skipKey);
   if (cachedMk) {
+    // `cachedMk` is owned by the caller's state.MKSKIPPED. Decrypt with a
+    // clone and zero the clone instead of mutating the caller's buffer —
+    // `cachedMk.fill(0)` would corrupt the caller's retained state (AUDIT.md H14).
+    const mk = Uint8Array.from(cachedMk);
     const newSkipped = new Map(state.MKSKIPPED);
     newSkipped.delete(skipKey);
     try {
-      const plaintext = await aeadDecrypt(cachedMk, message.ciphertext, ad);
+      const plaintext = await aeadDecrypt(mk, message.ciphertext, ad);
       return {
         plaintext,
         newState: { ...state, MKSKIPPED: newSkipped },
       };
     } finally {
-      cachedMk.fill(0);
+      mk.fill(0);
     }
   }
 

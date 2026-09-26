@@ -28,6 +28,16 @@ import { SfuProducerSourceSchema } from "./sfu.js";
 export const WS_CLIENT_PROTOCOL = `seclettr.v${WS_PROTOCOL_VERSION}`;
 export const WS_AUTH_PROTOCOL_PREFIX = "seclettr.auth.";
 
+/**
+ * Bounds for inherently large free-form strings. SDP offers/answers with many
+ * codecs are a few KiB; ICE candidates and rtpCapabilities JSON are small.
+ * Without an upper bound a peer could force large allocations on the API and
+ * every relayed client (AUDIT.md H15).
+ */
+const MAX_SDP_LENGTH = 128 * 1024;
+const MAX_ICE_CANDIDATE_LENGTH = 4 * 1024;
+const MAX_RTP_CAPABILITIES_LENGTH = 256 * 1024;
+
 const CallSignalAuthSchema = versionedWireObject(1, {
   senderUserId: z.string().uuid(),
   senderDeviceId: z.string().uuid(),
@@ -69,7 +79,7 @@ export const WsClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("call.offer"),
     callId: z.string().uuid(),
     targetUserId: z.string().uuid(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     callType: z.enum(["audio", "video"]),
     chatKind: DirectChatKindSchema.optional(),
     mediaEncryption: CallMediaEncryptionOfferSchema.optional(),
@@ -79,7 +89,7 @@ export const WsClientMessageSchema = z.discriminatedUnion("type", [
   wsEnvelope({
     type: z.literal("call.answer"),
     callId: z.string().uuid(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     mediaEncryption: CallMediaEncryptionAnswerSchema.optional(),
     features: DirectCallFeaturesSchema.optional(),
     auth: CallSignalAuthSchema.optional(),
@@ -88,25 +98,25 @@ export const WsClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("call.renegotiate.offer"),
     callId: z.string().uuid(),
     revision: z.number().int().positive(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     auth: CallSignalAuthSchema.optional(),
   }),
   wsEnvelope({
     type: z.literal("call.renegotiate.answer"),
     callId: z.string().uuid(),
     revision: z.number().int().positive(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     auth: CallSignalAuthSchema.optional(),
   }),
   wsEnvelope({
     type: z.literal("call.ice"),
     callId: z.string().uuid(),
-    candidate: z.string(),
+    candidate: z.string().max(MAX_ICE_CANDIDATE_LENGTH),
   }),
   wsEnvelope({
     type: z.literal("call.ice.batch"),
     callId: z.string().uuid(),
-    candidates: z.array(z.string()).min(1).max(32),
+    candidates: z.array(z.string().max(MAX_ICE_CANDIDATE_LENGTH)).min(1).max(32),
   }),
   wsEnvelope({
     type: z.literal("call.hangup"),
@@ -153,7 +163,7 @@ export const WsClientMessageSchema = z.discriminatedUnion("type", [
   wsEnvelope({
     type: z.literal("room.join"),
     roomId: z.string().uuid(),
-    rtpCapabilities: z.string(),
+    rtpCapabilities: z.string().max(MAX_RTP_CAPABILITIES_LENGTH),
   }),
   wsEnvelope({
     type: z.literal("room.leave"),
@@ -242,7 +252,7 @@ export const WsServerMessageSchema = z.discriminatedUnion("type", [
     answererUserId: z.string().uuid().optional(),
     answererDeviceId: z.string().uuid().optional(),
     targetUserId: z.string().uuid().optional(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     mediaEncryption: CallMediaEncryptionAnswerSchema.optional(),
     features: DirectCallFeaturesSchema.optional(),
     auth: CallSignalAuthSchema.optional(),
@@ -253,7 +263,7 @@ export const WsServerMessageSchema = z.discriminatedUnion("type", [
     callerUserId: z.string().uuid(),
     callerDeviceId: z.string().uuid().optional(),
     targetUserId: z.string().uuid().optional(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     callType: z.enum(["audio", "video"]),
     chatKind: DirectChatKindSchema.optional(),
     mediaEncryption: CallMediaEncryptionOfferSchema.optional(),
@@ -266,7 +276,7 @@ export const WsServerMessageSchema = z.discriminatedUnion("type", [
     revision: z.number().int().positive(),
     senderUserId: z.string().uuid(),
     senderDeviceId: z.string().uuid(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     auth: CallSignalAuthSchema.optional(),
   }),
   wsEnvelope({
@@ -275,18 +285,18 @@ export const WsServerMessageSchema = z.discriminatedUnion("type", [
     revision: z.number().int().positive(),
     senderUserId: z.string().uuid(),
     senderDeviceId: z.string().uuid(),
-    sdp: z.string(),
+    sdp: z.string().max(MAX_SDP_LENGTH),
     auth: CallSignalAuthSchema.optional(),
   }),
   wsEnvelope({
     type: z.literal("call.ice"),
     callId: z.string().uuid(),
-    candidate: z.string(),
+    candidate: z.string().max(MAX_ICE_CANDIDATE_LENGTH),
   }),
   wsEnvelope({
     type: z.literal("call.ice.batch"),
     callId: z.string().uuid(),
-    candidates: z.array(z.string()).min(1).max(32),
+    candidates: z.array(z.string().max(MAX_ICE_CANDIDATE_LENGTH)).min(1).max(32),
   }),
   wsEnvelope({
     type: z.literal("call.hangup"),

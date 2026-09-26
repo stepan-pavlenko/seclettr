@@ -114,6 +114,13 @@ export interface SfuServerConfig {
   cleanupIntervalMs: number;
   topology: string;
   corsOrigin: string;
+  /** Resource caps (AUDIT.md H13). Optional for tests; sensible defaults apply. */
+  maxRooms?: number;
+  maxPeersPerRoom?: number;
+  maxTransportsPerPeer?: number;
+  maxProducersPerPeer?: number;
+  maxConsumersPerPeer?: number;
+  rateLimitMaxBuckets?: number;
 }
 
 export interface SfuServerDeps {
@@ -131,9 +138,17 @@ export interface SfuServer {
 
 export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
   const { config, workerPool, rooms, roomAccess } = deps;
+  const maxRooms = Math.max(config.maxRooms ?? 500, 1);
+  const maxPeersPerRoom = Math.max(config.maxPeersPerRoom ?? 50, 1);
+  const maxTransportsPerPeer = Math.max(config.maxTransportsPerPeer ?? 4, 1);
+  const maxProducersPerPeer = Math.max(config.maxProducersPerPeer ?? 6, 1);
+  const maxConsumersPerPeer = Math.max(config.maxConsumersPerPeer ?? 100, 1);
   const requestRateLimiter = new FixedWindowRateLimiter({
     maxRequests: Math.max(config.rateLimitMaxRequests, 1),
     windowMs: Math.max(config.rateLimitWindowMs, 1000),
+    ...(config.rateLimitMaxBuckets !== undefined
+      ? { maxBuckets: config.rateLimitMaxBuckets }
+      : {}),
   });
 
   function getPeerIdentity(auth: { sub: string; deviceId?: string; sessionId?: string }): PeerIdentity {
@@ -149,12 +164,17 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
   }
 
   function buildRateLimitKey(request: FastifyRequest): string {
-    const ip = request.ip || "unknown-ip";
     const reqAuth = request.auth;
     if (!reqAuth) {
-      return `anon:${ip}`;
+      // Unauthenticated requests should not reach here (auth runs first), but
+      // fall back to the transport peer address rather than a client-supplied
+      // header value (AUDIT.md H13).
+      return `anon:${request.socket.remoteAddress ?? "unknown"}`;
     }
-    return `auth:${reqAuth.sub}:${reqAuth.deviceId ?? "legacy-device"}:${ip}`;
+    // Do NOT mix in request.ip: `trustProxy` trusts loopback/linklocal, so a
+    // LAN client could spoof X-Forwarded-For and mint unlimited buckets,
+    // defeating the per-identity limit (AUDIT.md H13).
+    return `auth:${reqAuth.sub}:${reqAuth.deviceId ?? "legacy-device"}`;
   }
 
   async function requireSfuRateLimit(
@@ -178,6 +198,11 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
       touchRoom(existing);
       return existing;
     }
+    if (rooms.size >= maxRooms) {
+      throw Object.assign(new Error("Room limit reached"), {
+        code: "SFU_ROOM_LIMIT",
+      });
+    }
     const worker = workerPool.getNextWorker();
     const router = await worker.createRouter({ mediaCodecs });
     const room = createRoomRecord<Router, WebRtcTransport, Producer, Consumer>(
@@ -186,6 +211,25 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
     );
     rooms.set(roomId, room);
     return room;
+  }
+
+  /**
+   * Resolve (creating if needed) a room, translating the cap error into a 503.
+   * Returns null after the reply has been sent.
+   */
+  async function resolveRoom(
+    reply: FastifyReply,
+    roomId: string
+  ): Promise<Room | null> {
+    try {
+      return await getOrCreateRoom(roomId);
+    } catch (error) {
+      if ((error as { code?: string }).code === "SFU_ROOM_LIMIT") {
+        await reply.code(503).send({ error: "Room capacity reached" });
+        return null;
+      }
+      throw error;
+    }
   }
 
   const fastify = Fastify({
@@ -235,7 +279,8 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
     async (request, reply) => {
       if (!(await roomAccess.ensureRoomAccess(request, reply, request.params.roomId)))
         return;
-      const room = await getOrCreateRoom(request.params.roomId);
+      const room = await resolveRoom(reply, request.params.roomId);
+      if (!room) return;
       touchRoom(room);
       return SfuRtpCapabilitiesResponseSchema.parse({
         version: SFU_PROTOCOL_VERSION,
@@ -259,8 +304,23 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
         return reply.code(403).send({ error: "Forbidden" });
       }
       if (!(await roomAccess.ensureRoomAccess(request, reply, body.roomId))) return;
-      const room = await getOrCreateRoom(body.roomId);
-      const peer = getOrCreatePeer(room, getPeerIdentity(request.auth), () =>
+      const room = await resolveRoom(reply, body.roomId);
+      if (!room) return;
+
+      const existingPeer = room.peers.get(getPeerKeyFromAuth(request.auth));
+      if (
+        !existingPeer &&
+        room.peers.size >= maxPeersPerRoom
+      ) {
+        // Only reject a brand-new peer when the room is full; existing peers
+        // must still be able to add transports / recover.
+        return reply.code(503).send({ error: "Room participant limit reached" });
+      }
+      if (existingPeer && existingPeer.transports.size >= maxTransportsPerPeer) {
+        return reply.code(429).send({ error: "Transport limit reached for this device" });
+      }
+
+      const peer = existingPeer ?? getOrCreatePeer(room, getPeerIdentity(request.auth), () =>
         nanoid()
       );
 
@@ -341,6 +401,10 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
       if (!owned) return reply.code(404).send({ error: "Transport not found" });
       if (owned.peer.peerKey !== getPeerKeyFromAuth(request.auth)) {
         return reply.code(403).send({ error: "Forbidden" });
+      }
+
+      if (owned.peer.producers.size >= maxProducersPerPeer) {
+        return reply.code(429).send({ error: "Producer limit reached for this device" });
       }
 
       const producer = await owned.transport.produce({
@@ -444,6 +508,10 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
       if (!owned) return reply.code(404).send({ error: "Transport not found" });
       if (owned.peer.peerKey !== peerKey) {
         return reply.code(403).send({ error: "Forbidden" });
+      }
+
+      if (peer.consumers.size >= maxConsumersPerPeer) {
+        return reply.code(429).send({ error: "Consumer limit reached for this device" });
       }
 
       if (
@@ -583,6 +651,10 @@ export async function createSfuServer(deps: SfuServerDeps): Promise<SfuServer> {
       if (userId !== request.auth.sub) {
         return reply.code(403).send({ error: "Forbidden" });
       }
+      // The caller is tearing down their own peer, but room access (guest
+      // session validity / membership) must still be enforced so a stale or
+      // kicked identity cannot mutate room state (AUDIT.md H13).
+      if (!(await roomAccess.ensureRoomAccess(request, reply, roomId))) return;
       const room = rooms.get(roomId);
       if (!room) return { ok: true };
       closePeer(room, getPeerKeyFromAuth(request.auth));

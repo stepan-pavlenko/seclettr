@@ -509,4 +509,41 @@ describe("WebSocket metadata contracts", () => {
       }).success
     ).toBe(false);
   });
+
+  it("bounds free-form SDP, ICE candidate, and rtpCapabilities strings", () => {
+    const oversized = "x".repeat(128 * 1024 + 1);
+    expect(
+      wsClient({
+        type: "call.offer",
+        callId: crypto.randomUUID(),
+        targetUserId: crypto.randomUUID(),
+        sdp: oversized,
+        callType: "audio",
+      }).success
+    ).toBe(false);
+
+    expect(
+      wsClient({
+        type: "call.ice",
+        callId: crypto.randomUUID(),
+        candidate: "x".repeat(4 * 1024 + 1),
+      }).success
+    ).toBe(false);
+
+    expect(
+      wsClient({
+        type: "call.ice.batch",
+        callId: crypto.randomUUID(),
+        candidates: ["x".repeat(4 * 1024 + 1)],
+      }).success
+    ).toBe(false);
+
+    expect(
+      wsClient({
+        type: "room.join",
+        roomId: crypto.randomUUID(),
+        rtpCapabilities: "x".repeat(256 * 1024 + 1),
+      }).success
+    ).toBe(false);
+  });
 });

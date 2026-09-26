@@ -72,6 +72,23 @@ Severity legend: **Critical** (blocks release/install or enables account comprom
   which is fragile.
 - Fix: add the env flag to dev CI, wire e2e + external-SFU jobs, replace argv sniffing.
 
+### C7 — Storage images no longer exist on Docker Hub (fresh install cannot start)
+- `infra/docker-compose.yml:70,91`, `infra/docker-compose.release.yml:97,116`, and
+  `scripts/release/install.sh:909-911` pull `minio/minio:latest` / `minio/mc:latest`.
+- Verified 2026-09-26: Docker Hub returns `object not found` (404) for the `minio` namespace
+  (`https://hub.docker.com/v2/repositories/minio/minio/`), while `postgres`, `redis`, and
+  `coturn` resolve and pull normally from the same host/network.
+  `docker pull minio/minio:latest` → `pull access denied ... repository does not exist`.
+  `quay.io/minio/*` and `ghcr.io/minio/*` also return unauthorized/denied.
+- Effect: a fresh install or `docker compose pull` fails at the storage service; the stack cannot
+  start. This is independent of the audit branch and affects every deployment.
+- Fix (done): images are now configurable (`MINIO_IMAGE` / `MINIO_MC_IMAGE`) and default to
+  pinned, verified-working equivalents (`bitnamilegacy/minio:2025.7.23-debian-12-r5`,
+  `bitnamilegacy/minio-client:2025.7.21-debian-12-r3`). `user: "0:0"` is set on the MinIO service
+  because the replacement image defaults to UID 1001 and cannot write the root-owned data volume;
+  the healthcheck and init container commands are unchanged. Verified end-to-end with
+  `docker compose up minio minio-init`: healthy + bucket created.
+
 ---
 
 ## 2. High
@@ -165,20 +182,27 @@ Severity legend: **Critical** (blocks release/install or enables account comprom
   spoof `X-Forwarded-For` and mint unlimited keys.
 - `apps/sfu/src/sfu-server.ts:585-588`: `DELETE /rooms/:roomId/peers/:userId` does not call
   `ensureRoomAccess`.
-- Fix (deferred to Phase 2).
+- Fix (done): room access now enforced on peer delete; `maxRooms`/`maxPeersPerRoom`/
+  `maxTransportsPerPeer`/`maxProducersPerPeer`/`maxConsumersPerPeer` caps added (503 on room cap,
+  429 on per-device caps); rate-limit key no longer mixes spoofable `request.ip`; bucket Map
+  bounded (`maxBuckets`) with opportunistic prune and fail-closed overflow. Caps are configurable
+  via `SFU_MAX_*` / `SFU_RATE_LIMIT_MAX_BUCKETS`.
 
 ### H14 — Crypto memory/aliasing defects
 - `packages/crypto/src/x3dh.ts:102-118`: `dh4` is not zeroized in the OTK branch.
 - `packages/crypto/src/sender-keys.ts:137-149`: `cachedMk.fill(0)` mutates a `Uint8Array` owned
   by the caller's `state.MKSKIPPED`, permanently corrupting that state.
-- Fix (deferred to Phase 2).
+- Fix (done): `dh4` zeroized after concat; cached MK cloned before decrypt so only the clone is
+  zeroized and `state.MKSKIPPED` is left intact. Regression test covers cache reuse across calls.
 
 ### H15 — Unbounded protocol schemas
 - `packages/protocol/src/websocket.ts:72,104,156`: `sdp`, `candidate`, `rtpCapabilities` are
   unbounded `z.string()`.
 - `packages/protocol/src/media-encryption.ts:58`: `encryptedKey` unbounded.
 - `packages/protocol/src/common.ts:17-29`: recursive `JsonValueSchema` with no depth/node limit.
-- Fix (deferred to Phase 2).
+- Fix (done): `sdp`/`candidate`/`rtpCapabilities`/`encryptedKey` bounded via `MAX_*_LENGTH`;
+  `JsonObjectSchema` uses `z.preprocess` with an iterative depth/node bound checked *before* the
+  recursive parse (fails closed instead of overflowing the stack). Tests added.
 
 ---
 
@@ -189,15 +213,22 @@ Web
   `src/lib/session-preview.ts:115`).
 - Logger redaction short-circuits at `depth > 2` (`src/lib/logger.ts:63`), leaking deep nested
   values in production.
+  - Fix (done): values beyond the depth bound are replaced with `[Truncated]` instead of returned
+    raw; sanitizer exported and covered by `logger-sanitize.test.ts`.
 - Saved messages and part of the plain cache are plaintext/weakly encrypted at rest
   (`src/stores/saved/useSavedMessagesStore.ts:47`, `src/stores/plain/messages/plain-messages-cache.ts:30-46`).
 - `String.fromCodePoint(...blob)` can throw `RangeError` for large caches
   (`plain-messages-cache.ts:84`).
+  - Fix (done): encode in 8 KB chunks (matching the attachment base64 pattern).
 
 API
 - Group member-count check is outside a transaction (`apps/api/src/routes/groups/index.ts:430-470`).
+  - Fix (done): count check + inserts now run inside a transaction that locks the group row
+    (`SELECT ... FOR UPDATE`), preventing concurrent add-member calls from exceeding the cap.
 - Refresh-token rotation has no row lock / reuse detection (`routes/auth/index.ts:565-605`).
 - `/metrics` bearer comparison is not constant-time (`src/index.ts:214-222`).
+  - Fix (done): constant-time comparison via `lib/constant-time.ts` (hashes both sides to a fixed
+    length before `timingSafeEqual`).
 - Path params are generally not UUID-validated → 500 on malformed input.
 
 Infra / CI / supply chain
@@ -212,6 +243,8 @@ Tests
 - No coverage thresholds; coverage only for 3 of 5 packages.
 - No `apps/web/vitest.config.ts`; 238 test files rely on per-file environment docblocks.
 - `apps/api/src/db/migrate.ts` baseline map omits migrations 015/027/029 and is untested.
+  - Fix (done): baseline checks added for 015/027/029; `migrate-baseline.test.ts` fails if any
+    migration file lacks a baseline entry.
 
 Docs
 - No `CHANGELOG`, `SECURITY`, `CODEOWNERS`, or `CONTRIBUTING`.

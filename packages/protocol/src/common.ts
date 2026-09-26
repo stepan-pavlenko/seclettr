@@ -14,6 +14,43 @@ export type JsonValue =
   | { [key: string]: JsonValue };
 export type JsonObject = Record<string, unknown>;
 
+/**
+ * Upper bounds for free-form JSON carried over the wire. Without them a peer
+ * can send a deeply nested or node-heavy object that expands during parsing and
+ * downstream traversal (see AUDIT.md H15).
+ */
+export const MAX_JSON_DEPTH = 32;
+export const MAX_JSON_NODES = 10_000;
+
+function isBoundedJson(value: unknown): boolean {
+  let nodes = 0;
+  const stack: Array<{ value: unknown; depth: number }> = [
+    { value, depth: 1 },
+  ];
+
+  while (stack.length > 0) {
+    const { value: current, depth } = stack.pop()!;
+    nodes += 1;
+    if (nodes > MAX_JSON_NODES || depth > MAX_JSON_DEPTH) {
+      return false;
+    }
+    if (current === null || typeof current !== "object") {
+      continue;
+    }
+    if (Array.isArray(current)) {
+      for (const item of current) {
+        stack.push({ value: item, depth: depth + 1 });
+      }
+      continue;
+    }
+    for (const item of Object.values(current)) {
+      stack.push({ value: item, depth: depth + 1 });
+    }
+  }
+
+  return true;
+}
+
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
     z.string(),
@@ -25,8 +62,18 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   ])
 );
 
-export const JsonObjectSchema: z.ZodType<JsonObject> =
-  z.record(JsonValueSchema);
+// `z.preprocess` (not `.refine`) is used deliberately: the depth/node check
+// must run BEFORE the recursive `JsonValueSchema` walk, otherwise a deeply
+// nested payload could overflow the stack during parsing itself. When the
+// bound is violated the value is replaced with a sentinel that the inner
+// record schema rejects, without recursing into the original input.
+const UNBOUNDED_JSON_SENTINEL = Symbol("unbounded-json");
+
+export const JsonObjectSchema: z.ZodType<JsonObject, z.ZodTypeDef, unknown> =
+  z.preprocess(
+    (value) => (isBoundedJson(value) ? value : UNBOUNDED_JSON_SENTINEL),
+    z.record(JsonValueSchema)
+  );
 
 export type StripVersion<T> = T extends { version: unknown }
   ? Omit<T, "version">

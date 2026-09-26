@@ -101,6 +101,7 @@ export async function x3dhSend(
   if (bundle.oneTimePreKey) {
     const dh4 = await dh(senderEphemeralKeyPair.privateKey, bundle.oneTimePreKey.publicKey);
     dhInput = concat(dh1, dh2, dh3, dh4);
+    dh4.fill(0);
   } else {
     dhInput = concat(dh1, dh2, dh3);
   }

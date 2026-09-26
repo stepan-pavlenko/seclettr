@@ -94,8 +94,12 @@ services:
     logging: *default-logging
 
   minio:
-    image: minio/minio:latest
+    image: ${MINIO_IMAGE:-bitnamilegacy/minio:2025.7.23-debian-12-r5}
     restart: unless-stopped
+    # Upstream MinIO ran as root and wrote to a root-owned /data volume. The
+    # Bitnami-based image defaults to UID 1001, which cannot write the
+    # root-owned named volume, so pin root to preserve previous behavior.
+    user: "0:0"
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY must be set}
@@ -113,7 +117,7 @@ services:
     logging: *default-logging
 
   minio-init:
-    image: minio/mc:latest
+    image: ${MINIO_MC_IMAGE:-bitnamilegacy/minio-client:2025.7.21-debian-12-r3}
     depends_on:
       minio:
         condition: service_healthy

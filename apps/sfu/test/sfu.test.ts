@@ -50,6 +50,27 @@ describe("SFU rate limiter", () => {
       retryAfterMs: 0,
     });
   });
+
+  it("caps retained buckets and fails closed instead of growing unbounded", () => {
+    let now = 0;
+    const limiter = new FixedWindowRateLimiter({
+      maxRequests: 1,
+      windowMs: 1000,
+      maxBuckets: 3,
+      now: () => now,
+    });
+
+    expect(limiter.check("a").allowed).toBe(true);
+    expect(limiter.check("b").allowed).toBe(true);
+    expect(limiter.check("c").allowed).toBe(true);
+
+    // At the cap with no expired buckets, a new key must be rejected.
+    expect(limiter.check("d").allowed).toBe(false);
+
+    // Once buckets expire, the sweep frees capacity for new keys again.
+    now = 1001;
+    expect(limiter.check("e").allowed).toBe(true);
+  });
 });
 
 describe("SFU room state", () => {

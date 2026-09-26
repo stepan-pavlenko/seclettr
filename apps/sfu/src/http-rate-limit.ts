@@ -1,6 +1,12 @@
 export interface RateLimitOptions {
   maxRequests: number;
   windowMs: number;
+  /**
+   * Upper bound on retained buckets. The map was previously unbounded, so a
+   * client cycling keys (IPs / identities) could grow it without limit
+   * (see AUDIT.md H13).
+   */
+  maxBuckets?: number;
   now?: () => number;
 }
 
@@ -15,24 +21,41 @@ interface RateLimitBucket {
   resetAt: number;
 }
 
+const DEFAULT_MAX_BUCKETS = 100_000;
+
 export class FixedWindowRateLimiter {
   private readonly buckets = new Map<string, RateLimitBucket>();
   private readonly maxRequests: number;
   private readonly windowMs: number;
+  private readonly maxBuckets: number;
   private readonly now: () => number;
 
   constructor(options: RateLimitOptions) {
     this.maxRequests = options.maxRequests;
     this.windowMs = options.windowMs;
+    this.maxBuckets = Math.max(options.maxBuckets ?? DEFAULT_MAX_BUCKETS, 1);
     this.now = options.now ?? (() => Date.now());
   }
 
   check(key: string): RateLimitDecision {
     const now = this.now();
-    this.prune(now);
 
     const existing = this.buckets.get(key);
     if (!existing || existing.resetAt <= now) {
+      // Opportunistic bounded cleanup: instead of scanning every bucket on
+      // every request (O(n) per call), sweep only when the map reaches its
+      // cap. When still at cap after sweeping, fail closed rather than grow
+      // unbounded (see AUDIT.md H13).
+      if (!existing && this.buckets.size >= this.maxBuckets) {
+        this.prune(now);
+        if (this.buckets.size >= this.maxBuckets) {
+          return {
+            allowed: false,
+            remaining: 0,
+            retryAfterMs: this.windowMs,
+          };
+        }
+      }
       const bucket: RateLimitBucket = {
         count: 1,
         resetAt: now + this.windowMs,

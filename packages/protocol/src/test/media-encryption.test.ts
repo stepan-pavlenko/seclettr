@@ -60,4 +60,27 @@ describe("media encryption schemas", () => {
     expect(GroupCallMediaEncryptionModeSchema.safeParse("off").success).toBe(true);
     expect(GroupCallMediaEncryptionModeSchema.safeParse("frame-v2").success).toBe(false);
   });
+
+  it("bounds the encrypted media key envelope length", () => {
+    const base = {
+      targetDeviceId: crypto.randomUUID(),
+      epoch: 1,
+      keyId: "media-key-1",
+      algorithm: "aes-256-gcm",
+    } as const;
+
+    expect(
+      GroupCallMediaKeySignalBodySchema.safeParse({
+        ...base,
+        encryptedKey: "x".repeat(4 * 1024 + 1),
+      }).success
+    ).toBe(false);
+
+    expect(
+      GroupCallMediaKeySignalBodySchema.safeParse({
+        ...base,
+        encryptedKey: "x".repeat(4 * 1024),
+      }).success
+    ).toBe(true);
+  });
 });

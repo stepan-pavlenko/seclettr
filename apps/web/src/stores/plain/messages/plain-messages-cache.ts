@@ -81,7 +81,14 @@ export async function saveConversationsCache(
     const blob = new Uint8Array(iv.byteLength + ciphertext.byteLength);
     blob.set(iv, 0);
     blob.set(new Uint8Array(ciphertext), iv.byteLength);
-    localStorage.setItem(cacheStorageKey(myUserId), btoa(String.fromCodePoint(...blob)));
+    // Encode in chunks: `String.fromCodePoint(...blob)` throws RangeError when
+    // the spread exceeds the engine argument limit for large caches.
+    const CHUNK = 8192;
+    let binary = "";
+    for (let offset = 0; offset < blob.length; offset += CHUNK) {
+      binary += String.fromCodePoint(...blob.subarray(offset, offset + CHUNK));
+    }
+    localStorage.setItem(cacheStorageKey(myUserId), btoa(binary));
   } catch {
     // quota exceeded, private mode, or crypto error — ignore
   }

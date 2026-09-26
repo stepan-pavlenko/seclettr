@@ -134,6 +134,7 @@ const baselineChecks: Record<string, () => Promise<boolean>> = {
     indexExists("gm_group_active"),
   "014_call_sessions_integrity.sql": async () =>
     constraintExists("call_sessions", "cs_call_target_xor"),
+  "015_audit_log.sql": async () => tableExists("audit_log"),
   "016_attachment_upload_state.sql": async () =>
     columnExists("attachments", "upload_state"),
   "017_group_crypto_epoch.sql": async () =>
@@ -157,8 +158,13 @@ const baselineChecks: Record<string, () => Promise<boolean>> = {
     tableExists("background_poll_tokens"),
   "026_user_profiles.sql": async () =>
     columnExists("users", "display_name"),
+  "027_plain_group_profiles.sql": async () =>
+    (await columnExists("plain_groups", "avatar_key")) &&
+    (await columnExists("plain_groups", "description")),
   "028_background_poll_token_expiry.sql": async () =>
     columnExists("background_poll_tokens", "expires_at"),
+  "029_fcm_device_tokens.sql": async () =>
+    tableExists("push_device_tokens"),
 };
 
 async function baselineBootstrappedMigrations(files: string[]): Promise<void> {
