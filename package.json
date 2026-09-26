@@ -11,7 +11,7 @@
     "dev:down": "bash ./scripts/seclettr dev down",
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:coverage": "pnpm --filter @seclettr/web test:coverage && pnpm --filter @seclettr/api test:coverage && pnpm --filter @seclettr/crypto test:coverage",
+    "test:coverage": "pnpm --filter @seclettr/protocol test:coverage && pnpm --filter @seclettr/crypto test:coverage && pnpm --filter @seclettr/sfu test:coverage && pnpm --filter @seclettr/web test:coverage && pnpm --filter @seclettr/api test:coverage",
     "test:e2e": "bash ./scripts/seclettr ops e2e",
     "test:e2e:playwright": "playwright test",
     "lint": "turbo run lint",

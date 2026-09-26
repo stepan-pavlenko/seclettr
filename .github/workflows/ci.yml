@@ -115,5 +115,7 @@ jobs:
           path: |
             apps/web/coverage
             apps/api/coverage
+            apps/sfu/coverage
             packages/crypto/coverage
+            packages/protocol/coverage
           if-no-files-found: ignore

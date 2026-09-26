@@ -279,9 +279,9 @@ Infra / CI / supply chain
 
 Tests
 - No coverage thresholds; coverage only for 3 of 5 packages.
-  - Fix (partial, done): ratchet coverage thresholds added for web, api, and crypto
-    (`pnpm test:coverage` in CI now fails on regression). `protocol` and `sfu` still have no
-    coverage job.
+  - Fix (done): all five packages (web, api, crypto, protocol, sfu) now have ratchet coverage
+    thresholds and a `test:coverage` script; the root `pnpm test:coverage` in CI runs all of them
+    and fails on regression. All five coverage reports are uploaded as CI artifacts.
 - No `apps/web/vitest.config.ts`; 238 test files rely on per-file environment docblocks.
   - Fix (done): `apps/web/vite.config.ts` now declares the shared test config (include globs,
     default `node` environment, globals). Per-file `@vitest-environment` docblocks still take

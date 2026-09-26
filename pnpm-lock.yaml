@@ -188,6 +188,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: 6.21.0
         version: 6.21.0(eslint@8.57.0)(typescript@5.9.3)
+      '@vitest/coverage-v8':
+        specifier: 1.6.1
+        version: 1.6.1(vitest@1.6.1(@types/node@20.19.41)(jsdom@28.1.0)(terser@5.48.0))
       eslint:
         specifier: 8.57.0
         version: 8.57.0
@@ -359,6 +362,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: 6.21.0
         version: 6.21.0(eslint@8.57.0)(typescript@5.9.3)
+      '@vitest/coverage-v8':
+        specifier: 1.6.1
+        version: 1.6.1(vitest@1.6.1(@types/node@20.19.41)(jsdom@28.1.0)(terser@5.48.0))
       eslint:
         specifier: 8.57.0
         version: 8.57.0
@@ -8062,7 +8068,6 @@ snapshots:
   hasown@2.0.4:
     dependencies:
       function-bind: 1.1.2
-    optional: true
 
   helmet@7.2.0: {}
 
@@ -8181,7 +8186,7 @@ snapshots:
 
   is-core-module@2.16.2:
     dependencies:
-      hasown: 2.0.3
+      hasown: 2.0.4
 
   is-data-view@1.0.2:
     dependencies:
