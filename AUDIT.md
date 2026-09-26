@@ -261,7 +261,9 @@ Infra / CI / supply chain
     (postgres/redis/minio) are intentionally left unconstrained.
 - Actions pinned to mutable tags; no Dependabot/SBOM/cosign/Sonar.
   - Fix (partial): Dependabot added for npm, GitHub Actions, and Docker. All workflow
-    `uses:` references are now pinned to immutable commit SHAs. SBOM/cosign/Sonar still open.
+    `uses:` references are now pinned to immutable commit SHAs. Release image builds now emit
+    signed SBOM and provenance attestations (`sbom`/`provenance` on `docker/build-push-action`,
+    with `id-token`/`attestations` permissions). cosign verification and Sonar remain open.
 - Automated release always uses `--skip-verify`; `cancel-in-progress: true` on release.
   - Fix (partial): `cancel-in-progress: false` on release already fixed in Phase 0. The
     snapshot (`workflow_run`) build still passes `--skip-verify`; the manual,

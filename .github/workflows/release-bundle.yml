@@ -18,6 +18,10 @@ on:
 permissions:
   contents: write
   packages: write
+  # Required by docker/build-push-action to generate SBOM and provenance
+  # attestations (AUDIT.md supply chain).
+  id-token: write
+  attestations: write
 
 concurrency:
   group: release-bundle-main
@@ -114,6 +118,9 @@ jobs:
           context: .
           file: ./apps/api/Dockerfile
           push: true
+          # Attach signed SBOM + provenance attestations to the pushed image.
+          sbom: true
+          provenance: true
           tags: |
             ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.api_image }}:latest
@@ -130,6 +137,8 @@ jobs:
           context: .
           file: ./apps/web/Dockerfile
           push: true
+          sbom: true
+          provenance: true
           tags: |
             ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.web_image }}:latest
@@ -146,6 +155,8 @@ jobs:
           context: .
           file: ./apps/sfu/Dockerfile
           push: true
+          sbom: true
+          provenance: true
           tags: |
             ${{ steps.meta.outputs.sfu_image }}:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.sfu_image }}:latest
