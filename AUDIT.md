@@ -236,15 +236,15 @@ API
 
 Infra / CI / supply chain
 - `minio`, `mc`, `coturn` pinned to `:latest`.
-  - Fix (partial): MinIO images replaced with pinned, configurable equivalents (C7). `coturn`
-    remains `:latest` (its release tags are not easily discoverable here).
+  - Fix (done): MinIO images replaced with pinned, configurable equivalents (C7); coturn pinned
+    to `4.18.0-r0-alpine` and made configurable via `COTURN_IMAGE`.
 - No resource limits / `no-new-privileges` / `cap_drop` in compose.
   - Fix (done): `no-new-privileges` + `cap_drop: ALL` and memory ceilings added to the
     `api`/`sfu`/`web` (and `migrate`) services in both compose files; data services
     (postgres/redis/minio) are intentionally left unconstrained.
 - Actions pinned to mutable tags; no Dependabot/SBOM/cosign/Sonar.
-  - Fix (partial): Dependabot added for npm, GitHub Actions, and Docker. SBOM/cosign/Sonar
-    still open. Actions remain on mutable major tags.
+  - Fix (partial): Dependabot added for npm, GitHub Actions, and Docker. All workflow
+    `uses:` references are now pinned to immutable commit SHAs. SBOM/cosign/Sonar still open.
 - Automated release always uses `--skip-verify`; `cancel-in-progress: true` on release.
   - Fix (partial): `cancel-in-progress: false` on release already fixed in Phase 0. The
     snapshot (`workflow_run`) build still passes `--skip-verify`; the manual,

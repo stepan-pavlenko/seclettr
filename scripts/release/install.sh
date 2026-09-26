@@ -926,7 +926,7 @@ runtime_image_for_service() {
     redis) printf '%s' "redis:7-alpine" ;;
     minio) printf '%s' "${MINIO_IMAGE:-bitnamilegacy/minio:2025.7.23-debian-12-r5}" ;;
     minio-init) printf '%s' "${MINIO_MC_IMAGE:-bitnamilegacy/minio-client:2025.7.21-debian-12-r3}" ;;
-    coturn) printf '%s' "coturn/coturn:latest" ;;
+    coturn) printf '%s' "${COTURN_IMAGE:-coturn/coturn:4.18.0-r0-alpine}" ;;
     api|migrate) printf '%s:%s' "${SECLETTR_API_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/api}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
     sfu) printf '%s:%s' "${SECLETTR_SFU_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/sfu}" "${SECLETTR_IMAGE_TAG:-latest}" ;;
     web) printf '%s:%s' "${SECLETTR_WEB_IMAGE:-ghcr.io/stepan-pavlenko/seclettr/web}" "${SECLETTR_IMAGE_TAG:-latest}" ;;

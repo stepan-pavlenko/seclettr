@@ -156,7 +156,7 @@ services:
     logging: *default-logging
 
   coturn:
-    image: coturn/coturn:latest
+    image: ${COTURN_IMAGE:-coturn/coturn:4.18.0-r0-alpine}
     restart: unless-stopped
     network_mode: host
     command: >

@@ -35,7 +35,8 @@ curl -fsSL https://raw.githubusercontent.com/stepan-pavlenko/seclettr/main/scrip
 
 - Linux server (Ubuntu 22.04+ recommended)
 - Docker + Docker Compose plugin
-- Open ports: `80` and `443` (web), `3478` UDP/TCP + `50000–51999` UDP (TURN/media)
+- Open ports: `80` and `443` (web), `3478` UDP/TCP + `50000–51999` UDP (TURN)
+- SFU media over UDP `40000–49999` (required for group/room calls; see `RTC_MIN_PORT`/`RTC_MAX_PORT`)
 - A domain name pointing at the server (recommended for production)
 
 Install Docker if missing:
