@@ -48,5 +48,18 @@ export default defineConfig({
     hookTimeout: 30_000,
     globalSetup: includeIntegrationTests ? ["src/test/global-setup.ts"] : [],
     setupFiles: includeIntegrationTests ? ["src/test/setup.ts"] : [],
+    coverage: {
+      provider: "v8",
+      reporter: ["lcov", "text-summary"],
+      // Integration suites are excluded from the default `test:coverage` run,
+      // so these floors only bound the unit-test surface. They are a ratchet
+      // set just below current levels (AUDIT.md Tests); raise as coverage grows.
+      thresholds: {
+        lines: 18,
+        statements: 18,
+        functions: 38,
+        branches: 60,
+      },
+    },
   },
 });

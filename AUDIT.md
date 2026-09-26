@@ -255,7 +255,13 @@ Infra / CI / supply chain
 
 Tests
 - No coverage thresholds; coverage only for 3 of 5 packages.
+  - Fix (partial, done): ratchet coverage thresholds added for web, api, and crypto
+    (`pnpm test:coverage` in CI now fails on regression). `protocol` and `sfu` still have no
+    coverage job.
 - No `apps/web/vitest.config.ts`; 238 test files rely on per-file environment docblocks.
+  - Fix (done): `apps/web/vite.config.ts` now declares the shared test config (include globs,
+    default `node` environment, globals). Per-file `@vitest-environment` docblocks still take
+    precedence, so no test behavior changed.
 - `apps/api/src/db/migrate.ts` baseline map omits migrations 015/027/029 and is untested.
   - Fix (done): baseline checks added for 015/027/029; `migrate-baseline.test.ts` fails if any
     migration file lacks a baseline entry.
