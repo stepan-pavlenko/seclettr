@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { request as httpRequest } from "node:http";
 import WebSocket from "ws";
 import { ensureSodium, toBase64Url } from "@seclettr/crypto";
 import {
@@ -120,6 +121,38 @@ async function apiRequest(
 
   const responseBody = await res.json().catch(() => ({}));
   return { status: res.status, body: responseBody };
+}
+
+// Declares an oversized Content-Length without writing the body. Fastify
+// rejects on the header alone (see lib/contentTypeParser.js rawBody), and this
+// avoids the client-write-vs-server-close race that makes fetch/undici surface
+// the 413 as `write EPIPE` under CI load instead of a response.
+async function requestOversizedPayload(
+  path: string,
+  token: string
+): Promise<{ status: number }> {
+  const url = new URL(`${BASE_URL}${path}`);
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      {
+        host: url.hostname,
+        port: url.port,
+        path: `${url.pathname}${url.search}`,
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+          "content-length": String(13 * 1024 * 1024),
+        },
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () => resolve({ status: res.statusCode ?? 0 }));
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 async function createDirectCallId(
@@ -4279,7 +4312,6 @@ describe("Messaging contracts", () => {
   let recipientUsername = "";
   let recipientUserId = "";
   let recipientDeviceId = "";
-  const oversizedCiphertext = "A".repeat(13 * 1024 * 1024);
 
   beforeAll(async () => {
     const sender = await registerUser(`msg_sender_${Date.now()}`);
@@ -4324,24 +4356,7 @@ describe("Messaging contracts", () => {
   });
 
   it("rejects oversized direct-message payloads with 413", async () => {
-    const { status } = await apiRequest(
-      "/messages",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          clientMessageId: crypto.randomUUID(),
-          recipientUserId,
-          messages: [
-            {
-              recipientDeviceId: crypto.randomUUID(),
-              ciphertext: oversizedCiphertext,
-              type: "text",
-            },
-          ],
-        }),
-      },
-      senderToken
-    );
+    const { status } = await requestOversizedPayload("/messages", senderToken);
 
     expect(status).toBe(413);
   });
@@ -4683,7 +4698,6 @@ describe("Group history contract", () => {
   let ownerToken = "";
   let memberToken = "";
   let groupId = "";
-  const oversizedCiphertext = "B".repeat(13 * 1024 * 1024);
 
   beforeAll(async () => {
     const owner = await registerUser(`gh_owner_${Date.now()}`);
@@ -4849,21 +4863,8 @@ describe("Group history contract", () => {
   });
 
   it("rejects oversized group-message payloads with 413", async () => {
-    const send = await apiRequest(
+    const send = await requestOversizedPayload(
       `/groups/${groupId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          clientMessageId: crypto.randomUUID(),
-          groupId,
-          distributionId: crypto.randomUUID(),
-          chainId: 0,
-          messageId: 1,
-          ciphertext: oversizedCiphertext,
-          signature: "BBBB",
-          type: "text",
-        }),
-      },
       ownerToken
     );
     expect(send.status).toBe(413);

@@ -12,21 +12,19 @@ const integrationTestFiles = [
 // Requires an external SFU instance; only run when explicitly requested.
 const externalIntegrationTestFiles = ["src/test/group-call-sfu-bootstrap.test.ts"];
 
-const argvIncludes = (file: string) =>
-  process.argv.some((arg) => arg.includes(file));
-
+// Integration mode is opt-in via env flags (set by CI and the
+// `test:integration*` scripts) rather than by sniffing `process.argv`.
+const includeExternalTests =
+  process.env["QM_API_INCLUDE_EXTERNAL_SFU_TESTS"] === "1";
 const includeIntegrationTests =
   process.env["QM_API_INCLUDE_INTEGRATION_TESTS"] === "1" ||
-  integrationTestFiles.some(argvIncludes) ||
-  externalIntegrationTestFiles.some(argvIncludes);
+  includeExternalTests;
 
-const includeExternalTests = externalIntegrationTestFiles.some(argvIncludes);
-
-const excludedTestFiles = includeIntegrationTests
-  ? includeExternalTests
-    ? []
-    : externalIntegrationTestFiles
-  : [...integrationTestFiles, ...externalIntegrationTestFiles];
+const excludedTestFiles = includeExternalTests
+  ? integrationTestFiles
+  : includeIntegrationTests
+    ? externalIntegrationTestFiles
+    : [...integrationTestFiles, ...externalIntegrationTestFiles];
 
 const sharedTestEnv = {
   QM_API_TEST_USE_IN_MEMORY_SERVICES: "1",
