@@ -237,6 +237,12 @@ API
 - `/metrics` bearer comparison is not constant-time (`src/index.ts:214-222`).
   - Fix (done): constant-time comparison via `lib/constant-time.ts` (hashes both sides to a fixed
     length before `timingSafeEqual`).
+- Attachment storage 503 responses echo the raw S3 error via `details`
+  (`routes/attachments/index.ts`), potentially exposing bucket names, endpoint URLs, or credential
+  hints to clients.
+  - Fix (done): the 503 body is now a generic `{ error: "Attachment storage unavailable" }`; the
+    detail remains in the server log. The write-only `lastError` state and its formatter were
+    removed.
 - Path params are generally not UUID-validated → 500 on malformed input.
   - Fix (done): root cause was that `fastify.setErrorHandler`/`setNotFoundHandler` were installed
     *after* route registration, so errors thrown in plugin scopes bypassed the custom handler and

@@ -68,7 +68,6 @@ interface AttachmentRow {
 interface AttachmentStorageState {
   ready: boolean;
   initializing: Promise<boolean> | null;
-  lastError: string | null;
 }
 
 function buildInMemoryAttachmentUrl(storageKey: string): string {
@@ -150,13 +149,6 @@ async function ensureAttachmentBucket(): Promise<void> {
     }
     throw err;
   }
-}
-
-function formatAttachmentStorageError(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return "Unknown attachment storage error";
 }
 
 function isMissingAttachmentObjectError(error: unknown): boolean {
@@ -319,7 +311,6 @@ export async function attachmentRoutes(fastify: FastifyInstance): Promise<void> 
   const storageState: AttachmentStorageState = {
     ready: false,
     initializing: null,
-    lastError: null,
   };
 
   const ensureAttachmentStorageReady = async (): Promise<boolean> => {
@@ -331,18 +322,15 @@ export async function attachmentRoutes(fastify: FastifyInstance): Promise<void> 
     storageState.initializing = (async () => {
       if (USE_IN_MEMORY_ATTACHMENT_STORAGE) {
         storageState.ready = true;
-        storageState.lastError = null;
         return true;
       }
 
       try {
         await ensureAttachmentBucket();
         storageState.ready = true;
-        storageState.lastError = null;
         return true;
       } catch (error) {
         storageState.ready = false;
-        storageState.lastError = formatAttachmentStorageError(error);
         fastify.log.warn(
           { err: error },
           "Attachment storage is unavailable; attachment routes will return 503 until storage recovers"
@@ -359,9 +347,11 @@ export async function attachmentRoutes(fastify: FastifyInstance): Promise<void> 
   const sendAttachmentStorageUnavailable = (reply: {
     code: (statusCode: number) => { send: (payload: unknown) => unknown };
   }) => {
+    // Do not echo the raw storage error to clients — it can contain bucket
+    // names, endpoint URLs, or credential hints. The detail stays in
+    // storageState.lastError and the server log for operators.
     return reply.code(503).send({
       error: "Attachment storage unavailable",
-      details: storageState.lastError ?? undefined,
     });
   };
 
