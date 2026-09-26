@@ -603,4 +603,35 @@ describe("api", () => {
       api.deletePushSubscription("11111111-1111-4111-8111-111111111111")
     ).resolves.toBeUndefined();
   });
+
+  it("passes an abort signal to fetch so a hung metadata request can be bounded", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.get<{ ok: boolean }>("/health");
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("propagates a caller-provided abort without converting it to a timeout", async () => {
+    const controller = new AbortController();
+    const abortError = new DOMException("The operation was aborted.", "AbortError");
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(abortError));
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const promise = api.get("/health", { signal: controller.signal });
+    controller.abort();
+
+    await expect(promise).rejects.toBe(abortError);
+  });
 });

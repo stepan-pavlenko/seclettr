@@ -20,6 +20,11 @@ import { isNativePlatform, getNativeServerUrl } from "../native-platform";
 
 let accessToken: string | null = null;
 
+// Metadata requests (JSON in/out, no large bodies) should not hang forever.
+// 30s is well above normal API latency and far below the browser's own limits;
+// uploads do not flow through this path (see upload-progress.ts).
+const REQUEST_TIMEOUT_MS = 30_000;
+
 function buildRequestHeaders(options: RequestInit = {}): Headers {
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && options.body !== undefined && !(options.body instanceof FormData)) {
@@ -79,11 +84,29 @@ export async function request<T>(
 ): Promise<T> {
   const headers = buildRequestHeaders(options);
 
-  const res = await fetch(`${resolveApiBaseUrl()}${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  // Bound how long a metadata request can hang. Uploads/large transfers use
+  // their own XHR/fetch paths (upload-progress.ts), so a blanket timeout here
+  // cannot truncate them. A caller-provided signal is preserved and composed
+  // with our timeout so both can abort the request.
+  const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, timeoutSignal])
+    : timeoutSignal;
+
+  let res: Response;
+  try {
+    res = await fetch(`${resolveApiBaseUrl()}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      signal,
+    });
+  } catch (err) {
+    if (timeoutSignal.aborted && !options.signal?.aborted) {
+      throw new ApiError(408, "Request timed out");
+    }
+    throw err;
+  }
 
   if (res.status === 401 && retry && !path.startsWith("/auth/")) {
     // refreshSessionAccessToken() deduplicates concurrent calls across HTTP, WS,

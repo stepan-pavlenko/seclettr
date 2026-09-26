@@ -219,6 +219,11 @@ Severity legend: **Critical** (blocks release/install or enables account comprom
 Web
 - No request timeouts on the API/session `fetch` paths (`apps/web/src/lib/api/client.ts:75-129`,
   `src/lib/session-preview.ts:115`).
+  - Fix (partial, done): the shared API transport `request()` now composes a 30s
+    `AbortSignal.timeout` with any caller-provided signal and maps a timeout to `ApiError(408)`.
+    Uploads use a separate XHR/fetch path (`lib/upload-progress.ts`) and are unaffected. The
+    boot-time `session-preview.ts` call is intentionally left unbounded: it already fails open to
+    `network_error` on any network failure and is a best-effort startup probe.
 - Logger redaction short-circuits at `depth > 2` (`src/lib/logger.ts:63`), leaking deep nested
   values in production.
   - Fix (done): values beyond the depth bound are replaced with `[Truncated]` instead of returned
