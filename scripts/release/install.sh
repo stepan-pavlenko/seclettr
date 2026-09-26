@@ -212,6 +212,22 @@ _detect_pkg_manager() {
   fi
 }
 
+# Docker publishes separate repositories per RHEL-family distribution. Using
+# the CentOS repo on Fedora/RHEL installs packages built for a different
+# release and fails (AUDIT.md Medium). Map the detected distro to its repo.
+_docker_rpm_repo_distro() {
+  local distro_id=""
+  if [[ -r /etc/os-release ]]; then
+    distro_id="$(. /etc/os-release && printf '%s' "${ID:-}")"
+  fi
+  case "$distro_id" in
+    fedora) printf '%s' "fedora" ;;
+    rhel) printf '%s' "rhel" ;;
+    centos|rocky|almalinux|ol) printf '%s' "centos" ;;
+    *) printf '%s' "centos" ;;
+  esac
+}
+
 _install_docker() {
   local pm="$(_detect_pkg_manager)"
   case "$pm" in
@@ -235,14 +251,16 @@ https://download.docker.com/linux/${distro_id} ${codename} stable" \
       ;;
     dnf)
       log_step "Installing Docker (dnf)..."
+      local repo_distro; repo_distro="$(_docker_rpm_repo_distro)"
       dnf -y -q install dnf-plugins-core
-      dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      dnf config-manager --add-repo "https://download.docker.com/linux/${repo_distro}/docker-ce.repo"
       dnf -y -q install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
       ;;
     yum)
       log_step "Installing Docker (yum)..."
+      local repo_distro; repo_distro="$(_docker_rpm_repo_distro)"
       yum install -y -q yum-utils
-      yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      yum-config-manager --add-repo "https://download.docker.com/linux/${repo_distro}/docker-ce.repo"
       yum install -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
       ;;
     apk)

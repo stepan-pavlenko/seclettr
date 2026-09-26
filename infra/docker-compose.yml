@@ -21,6 +21,30 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
+# Applied to the application containers (api/sfu/web). They run as non-root and
+# need no Linux capabilities; drop them all and forbid privilege escalation
+# (AUDIT.md infra).
+x-hardening: &default-hardening
+  security_opt:
+    - "no-new-privileges:true"
+  cap_drop:
+    - ALL
+
+# Memory ceilings on the stateless app containers; data services manage their
+# own memory and are left unconstrained. Override via env if needed.
+x-api-limits: &api-limits
+  resources:
+    limits:
+      memory: ${API_MEMORY_LIMIT:-1g}
+x-web-limits: &web-limits
+  resources:
+    limits:
+      memory: ${WEB_MEMORY_LIMIT:-256m}
+x-sfu-limits: &sfu-limits
+  resources:
+    limits:
+      memory: ${SFU_MEMORY_LIMIT:-2g}
+
 services:
 
   # ── PostgreSQL ────────────────────────────────────────────────────────────
@@ -132,6 +156,7 @@ services:
       context: ..
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    <<: *default-hardening
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -186,6 +211,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      <<: *api-limits
     logging: *default-logging
 
   # ── SFU (mediasoup) ───────────────────────────────────────────────────────
@@ -195,6 +222,7 @@ services:
       context: ..
       dockerfile: apps/sfu/Dockerfile
     restart: unless-stopped
+    <<: *default-hardening
     network_mode: host  # mediasoup needs host networking for RTP UDP
     environment:
       NODE_ENV: production
@@ -211,6 +239,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      <<: *sfu-limits
     logging: *default-logging
 
   # ── Web (Nginx serving the Vite build) ────────────────────────────────────
@@ -220,6 +250,7 @@ services:
       context: ..
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
+    <<: *default-hardening
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -238,6 +269,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      <<: *web-limits
     logging: *default-logging
 
 volumes:

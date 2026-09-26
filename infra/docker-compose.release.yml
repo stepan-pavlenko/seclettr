@@ -18,6 +18,32 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
+# Applied to application containers only (never to postgres/redis/coturn, which
+# need their own privileges). The images already run as non-root; drop all
+# capabilities and forbid privilege escalation (AUDIT.md infra).
+x-hardening: &default-hardening
+  security_opt:
+    - "no-new-privileges:true"
+  cap_drop:
+    - ALL
+
+# Memory ceilings on the stateless application containers keep one runaway
+# process from exhausting the host. Data services (postgres/redis/minio) manage
+# their own memory and are intentionally left unconstrained. Override per
+# service via env when a deployment needs more (AUDIT.md infra).
+x-api-limits: &api-limits
+  resources:
+    limits:
+      memory: ${API_MEMORY_LIMIT:-1g}
+x-web-limits: &web-limits
+  resources:
+    limits:
+      memory: ${WEB_MEMORY_LIMIT:-256m}
+x-sfu-limits: &sfu-limits
+  resources:
+    limits:
+      memory: ${SFU_MEMORY_LIMIT:-2g}
+
 x-api-env: &api-env
   NODE_ENV: production
   PORT: 3001
@@ -153,6 +179,7 @@ services:
     image: ${SECLETTR_API_IMAGE:-seclettr/api}:${SECLETTR_IMAGE_TAG:-release}
     profiles: ["ops"]
     restart: "no"
+    <<: *default-hardening
     depends_on:
       postgres:
         condition: service_healthy
@@ -167,6 +194,7 @@ services:
   api:
     image: ${SECLETTR_API_IMAGE:-seclettr/api}:${SECLETTR_IMAGE_TAG:-release}
     restart: unless-stopped
+    <<: *default-hardening
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -189,6 +217,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      <<: *api-limits
     logging: *default-logging
 
   sfu:
@@ -210,11 +240,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      <<: *sfu-limits
     logging: *default-logging
 
   web:
     image: ${SECLETTR_WEB_IMAGE:-seclettr/web}:${SECLETTR_IMAGE_TAG:-release}
     restart: unless-stopped
+    <<: *default-hardening
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -230,6 +263,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      <<: *web-limits
     logging: *default-logging
 
 volumes:

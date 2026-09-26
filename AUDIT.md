@@ -71,6 +71,9 @@ Severity legend: **Critical** (blocks release/install or enables account comprom
 - `apps/api/vitest.config.ts:14-28` gates integration by substring-matching `process.argv`,
   which is fragile.
 - Fix: add the env flag to dev CI, wire e2e + external-SFU jobs, replace argv sniffing.
+  - Fix (partial, done): `QM_API_INCLUDE_INTEGRATION_TESTS: "1"` added to `dev-ci.yml` so the
+    integration suites run on `dev/main` too. Playwright e2e and the external-SFU suite remain
+    unwired, and the argv sniffing in `vitest.config.ts` is unchanged.
 
 ### C7 — Storage images no longer exist on Docker Hub (fresh install cannot start)
 - `infra/docker-compose.yml:70,91`, `infra/docker-compose.release.yml:97,116`, and
@@ -233,11 +236,22 @@ API
 
 Infra / CI / supply chain
 - `minio`, `mc`, `coturn` pinned to `:latest`.
+  - Fix (partial): MinIO images replaced with pinned, configurable equivalents (C7). `coturn`
+    remains `:latest` (its release tags are not easily discoverable here).
 - No resource limits / `no-new-privileges` / `cap_drop` in compose.
+  - Fix (done): `no-new-privileges` + `cap_drop: ALL` and memory ceilings added to the
+    `api`/`sfu`/`web` (and `migrate`) services in both compose files; data services
+    (postgres/redis/minio) are intentionally left unconstrained.
 - Actions pinned to mutable tags; no Dependabot/SBOM/cosign/Sonar.
+  - Fix (partial): Dependabot added for npm, GitHub Actions, and Docker. SBOM/cosign/Sonar
+    still open. Actions remain on mutable major tags.
 - Automated release always uses `--skip-verify`; `cancel-in-progress: true` on release.
+  - Fix (partial): `cancel-in-progress: false` on release already fixed in Phase 0. The
+    snapshot (`workflow_run`) build still passes `--skip-verify`; the manual,
+    versioned release path runs the full gate.
 - Dockerfiles copy the whole build tree into runtime images.
 - `scripts/release/install.sh:215-258` installs the CentOS Docker repo on Fedora/RHEL.
+  - Fix (done): the RHEL-family branches now select the Fedora/RHEL/CentOS repo by distro ID.
 
 Tests
 - No coverage thresholds; coverage only for 3 of 5 packages.
