@@ -54,6 +54,6 @@
   },
   "packageManager": "pnpm@11.4.0",
   "dependencies": {
-    "@tanstack/react-virtual": "^3.13.22"
+    "@tanstack/react-virtual": "^3.14.13"
   }
 }
